@@ -1,0 +1,13 @@
+{
+  "apiVersion": 1,
+  "coreRepository": "https://github.com/alexj11324/Mikka.git",
+  "coreSha": "a1610e7cb411b0b676b8365df63c93986f205cbf",
+  "publicInterfacePatchSha256": "1d67c3e4952a31c082cb46e7e02759ecffa282779bdaadd72b174dc6caa570cf",
+  "overrides": [
+    {
+      "source": "overlay/lib/business/implementation.ts",
+      "target": "lib/business/implementation.ts",
+      "sha256": "79957519e3de55a60f783a51bc4e65f1fbad8df1c41d45beacaf0fda97c73686"
+    }
+  ]
+}
