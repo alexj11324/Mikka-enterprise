@@ -1,0 +1,73 @@
+{
+  "utc": "2026-10-25T19:57:26.263Z",
+  "sourceSha": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "publicHead": "721bbf3615f7b9a3672c149112382dac75c72cb8",
+  "sourcePublished": false,
+  "node": "v24.19.0",
+  "tests": {
+    "http": {
+      "actualRequests": 74,
+      "runtime": "cloud Linux Next development; separate loopback application/workspace PG17; synthetic OAuth/session/token fixtures"
+    },
+    "policy": {
+      "total": 21,
+      "skipped": 0
+    },
+    "productionBuild": {
+      "exitCode": 0,
+      "compiler": "Next 16.1.6 webpack in isolated Node24 container"
+    },
+    "productionBackendRegression": {
+      "passed": 3,
+      "skipped": 0,
+      "seconds": 18.2,
+      "unchangedTests": [
+        "factory-execution-claim.spec.ts",
+        "self-improvement-api.spec.ts",
+        "worker-authorization.spec.ts"
+      ],
+      "profile": "same localhost origin form as existing CI; no auth/source expectation changes"
+    },
+    "limitations": [
+      "not full exact-SHA remote CI",
+      "not real OAuth grant/provider/Harness acceptance",
+      "not frozen deployed Preview or production acceptance",
+      "positive budget lifecycle adapter and enterprise additions paused"
+    ]
+  },
+  "auditOverlay": "1b39b709ce361b9643524aea983860e6de818ff6",
+  "containers": [
+    {
+      "name": "/mikka-policy-710-runtime",
+      "image": "sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb",
+      "status": "exited",
+      "forwardedProviderKeyNames": []
+    },
+    {
+      "name": "/mikka-worker-80-runtime",
+      "image": "sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb",
+      "status": "running",
+      "forwardedProviderKeyNames": []
+    },
+    {
+      "name": "/mikka-policy-local-a3-production-20261025",
+      "image": "sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb",
+      "status": "running",
+      "forwardedProviderKeyNames": []
+    },
+    {
+      "name": "/mikka-policy-local-a3-production-localhost-20261025",
+      "image": "sha256:dc1f22974dab4be31a8b56d58cb1f8fc218e83de83ccd831d885b3d7ac1223fb",
+      "status": "running",
+      "forwardedProviderKeyNames": []
+    }
+  ],
+  "publication": {
+    "action": "push source/evidence or merge/deploy",
+    "status": "pending parent boundary review; held by explicit user instruction",
+    "autoReviewDenied": false,
+    "mainMerged": false,
+    "licenseChanged": false,
+    "newPrivateRepositoryCreated": false
+  }
+}

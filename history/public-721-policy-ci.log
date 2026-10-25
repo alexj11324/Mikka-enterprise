@@ -1,0 +1,1275 @@
+policy	Set up job	﻿2026-10-25T19:05:46.4251120Z Current runner version: '2.338.0'
+policy	Set up job	2026-10-25T19:05:46.4275862Z ##[group]Runner Image Provisioner
+policy	Set up job	2026-10-25T19:05:46.4276831Z Hosted Compute Agent
+policy	Set up job	2026-10-25T19:05:46.4277448Z Version: 20261021.618
+policy	Set up job	2026-10-25T19:05:46.4278082Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+policy	Set up job	2026-10-25T19:05:46.4279138Z Build Date: 2026-10-21T00:45:21Z
+policy	Set up job	2026-10-25T19:05:46.4279855Z Worker ID: {e22d7bc0-880e-4503-94dc-b6956eca6751}
+policy	Set up job	2026-10-25T19:05:46.4280547Z Region: westus2
+policy	Set up job	2026-10-25T19:05:46.4281160Z Cloud: Azure
+policy	Set up job	2026-10-25T19:05:46.4281689Z ##[endgroup]
+policy	Set up job	2026-10-25T19:05:46.4283629Z ##[group]Operating System
+policy	Set up job	2026-10-25T19:05:46.4284303Z Ubuntu
+policy	Set up job	2026-10-25T19:05:46.4284850Z 24.04.5
+policy	Set up job	2026-10-25T19:05:46.4285416Z LTS
+policy	Set up job	2026-10-25T19:05:46.4285921Z ##[endgroup]
+policy	Set up job	2026-10-25T19:05:46.4286522Z ##[group]Runner Image
+policy	Set up job	2026-10-25T19:05:46.4287123Z Image: ubuntu-24.04
+policy	Set up job	2026-10-25T19:05:46.4287696Z Version: 20261012.334.1
+policy	Set up job	2026-10-25T19:05:46.4289012Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+policy	Set up job	2026-10-25T19:05:46.4290850Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+policy	Set up job	2026-10-25T19:05:46.4291840Z ##[endgroup]
+policy	Set up job	2026-10-25T19:05:46.4292991Z ##[group]GITHUB_TOKEN Permissions
+policy	Set up job	2026-10-25T19:05:46.4294817Z Contents: read
+policy	Set up job	2026-10-25T19:05:46.4295458Z Metadata: read
+policy	Set up job	2026-10-25T19:05:46.4296097Z ##[endgroup]
+policy	Set up job	2026-10-25T19:05:46.4298053Z Secret source: Actions
+policy	Set up job	2026-10-25T19:05:46.4299476Z Cache mode: write
+policy	Set up job	2026-10-25T19:05:46.4300320Z Prepare workflow directory
+policy	Set up job	2026-10-25T19:05:46.4760247Z Prepare all required actions
+policy	Set up job	2026-10-25T19:05:46.4807811Z Getting action download info
+policy	Set up job	2026-10-25T19:05:46.8120767Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+policy	Set up job	2026-10-25T19:05:46.9104486Z Download action repository 'pnpm/action-setup@v4' (SHA:b906affcce14559ad1aafd4ab0e942779e9f58b1)
+policy	Set up job	2026-10-25T19:05:47.1558237Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+policy	Set up job	2026-10-25T19:05:47.2706865Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+policy	Set up job	2026-10-25T19:05:47.4877669Z Complete job name: policy
+policy	Initialize containers	﻿2026-10-25T19:05:47.5532611Z ##[group]Checking docker version
+policy	Initialize containers	2026-10-25T19:05:47.5545790Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+policy	Initialize containers	2026-10-25T19:05:47.6434522Z '1.48'
+policy	Initialize containers	2026-10-25T19:05:47.6449058Z Docker daemon API version: '1.48'
+policy	Initialize containers	2026-10-25T19:05:47.6450047Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+policy	Initialize containers	2026-10-25T19:05:47.6608604Z '1.48'
+policy	Initialize containers	2026-10-25T19:05:47.6620023Z Docker client API version: '1.48'
+policy	Initialize containers	2026-10-25T19:05:47.6624522Z ##[endgroup]
+policy	Initialize containers	2026-10-25T19:05:47.6627845Z ##[group]Clean up resources from previous jobs
+policy	Initialize containers	2026-10-25T19:05:47.6633792Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=ba37e9"
+policy	Initialize containers	2026-10-25T19:05:47.6775996Z ##[command]/usr/bin/docker network prune --force --filter "label=ba37e9"
+policy	Initialize containers	2026-10-25T19:05:47.6950649Z ##[endgroup]
+policy	Initialize containers	2026-10-25T19:05:47.6951221Z ##[group]Create local container network
+policy	Initialize containers	2026-10-25T19:05:47.6961705Z ##[command]/usr/bin/docker network create --label ba37e9 github_network_d405b16f9f76435589ae82039b70f74f
+policy	Initialize containers	2026-10-25T19:05:47.7506802Z 82429d04f4c450a73ea9235068cc92a5eb0c159c7a9bedd035f1cd0d3067ff32
+policy	Initialize containers	2026-10-25T19:05:47.7524191Z ##[endgroup]
+policy	Initialize containers	2026-10-25T19:05:47.7548183Z ##[group]Starting postgres service container
+policy	Initialize containers	2026-10-25T19:05:47.7569769Z ##[command]/usr/bin/docker pull postgres:17
+policy	Initialize containers	2026-10-25T19:05:48.6600832Z 17: Pulling from library/postgres
+policy	Initialize containers	2026-10-25T19:05:48.9329670Z f2be67225471: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9331429Z e0428ef87eb8: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9332800Z c9b382b1f732: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9334214Z 0f6d195ee345: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9335556Z d1b142a2d3ac: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9336653Z 2ab475e318db: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9338044Z bee16f784947: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9339315Z 633cb7982454: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9340660Z 0ec7842b4287: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9341623Z 515b4b00cc07: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9342461Z 90d33c82e6b4: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9343271Z a5bccd2244f9: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9344216Z d38aaa71d21a: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9345126Z 99b43abe6052: Pulling fs layer
+policy	Initialize containers	2026-10-25T19:05:48.9346030Z a5bccd2244f9: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9346826Z 0ec7842b4287: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9347605Z 515b4b00cc07: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9348398Z d38aaa71d21a: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9349446Z 99b43abe6052: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9350252Z 90d33c82e6b4: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9351141Z 0f6d195ee345: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9352236Z 2ab475e318db: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9353384Z bee16f784947: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9354534Z d1b142a2d3ac: Waiting
+policy	Initialize containers	2026-10-25T19:05:48.9355688Z 633cb7982454: Waiting
+policy	Initialize containers	2026-10-25T19:05:49.2571844Z e0428ef87eb8: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:49.2574167Z e0428ef87eb8: Download complete
+policy	Initialize containers	2026-10-25T19:05:49.5964127Z c9b382b1f732: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:49.5968688Z c9b382b1f732: Download complete
+policy	Initialize containers	2026-10-25T19:05:49.7501722Z f2be67225471: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:49.7504102Z f2be67225471: Download complete
+policy	Initialize containers	2026-10-25T19:05:49.7664126Z 0f6d195ee345: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:49.7665234Z 0f6d195ee345: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.0541976Z bee16f784947: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.0542700Z bee16f784947: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.2619623Z 2ab475e318db: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.2620422Z 2ab475e318db: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.2672611Z d1b142a2d3ac: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.2673256Z d1b142a2d3ac: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.3240476Z 633cb7982454: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.3244159Z 633cb7982454: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.5000116Z 515b4b00cc07: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.5001017Z 515b4b00cc07: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.5549597Z 90d33c82e6b4: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.5558023Z 90d33c82e6b4: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.7312455Z a5bccd2244f9: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.7313158Z a5bccd2244f9: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.7822179Z d38aaa71d21a: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.7823309Z d38aaa71d21a: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.8338363Z f2be67225471: Pull complete
+policy	Initialize containers	2026-10-25T19:05:50.9416766Z 0ec7842b4287: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.9418126Z 0ec7842b4287: Download complete
+policy	Initialize containers	2026-10-25T19:05:50.9675753Z 99b43abe6052: Verifying Checksum
+policy	Initialize containers	2026-10-25T19:05:50.9676349Z 99b43abe6052: Download complete
+policy	Initialize containers	2026-10-25T19:05:53.6034860Z e0428ef87eb8: Pull complete
+policy	Initialize containers	2026-10-25T19:05:53.7747147Z c9b382b1f732: Pull complete
+policy	Initialize containers	2026-10-25T19:05:53.8142639Z 0f6d195ee345: Pull complete
+policy	Initialize containers	2026-10-25T19:05:54.1133526Z d1b142a2d3ac: Pull complete
+policy	Initialize containers	2026-10-25T19:05:54.1877943Z 2ab475e318db: Pull complete
+policy	Initialize containers	2026-10-25T19:05:54.2050900Z bee16f784947: Pull complete
+policy	Initialize containers	2026-10-25T19:05:54.2082098Z 633cb7982454: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2073700Z 0ec7842b4287: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2360228Z 515b4b00cc07: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2470585Z 90d33c82e6b4: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2570637Z a5bccd2244f9: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2754617Z d38aaa71d21a: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2826710Z 99b43abe6052: Pull complete
+policy	Initialize containers	2026-10-25T19:05:57.2877750Z Digest: sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+policy	Initialize containers	2026-10-25T19:05:57.2886277Z Status: Downloaded newer image for postgres:17
+policy	Initialize containers	2026-10-25T19:05:57.2894448Z docker.io/library/postgres:17
+policy	Initialize containers	2026-10-25T19:05:57.2971387Z ##[command]/usr/bin/docker create --name 0429ed568a364021998a6cd4f2da826c_postgres17_5bb8c5 --label ba37e9 --network github_network_d405b16f9f76435589ae82039b70f74f --network-alias postgres -p 5432:5432 --health-cmd "pg_isready -U postgres -d policy_app_e2e" --health-interval 5s --health-timeout 5s --health-retries 10 -e "POSTGRES_HOST_AUTH_METHOD=trust" -e "POSTGRES_DB=policy_app_e2e" -e GITHUB_ACTIONS=true -e CI=true postgres:17
+policy	Initialize containers	2026-10-25T19:05:57.3224336Z 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:05:57.3245608Z ##[command]/usr/bin/docker start 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:05:57.5350371Z 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:05:57.5374262Z ##[command]/usr/bin/docker ps --all --filter id=9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+policy	Initialize containers	2026-10-25T19:05:57.5519456Z 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b Up Less than a second (health: starting)
+policy	Initialize containers	2026-10-25T19:05:57.5534878Z ##[command]/usr/bin/docker port 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:05:57.5670521Z 5432/tcp -> 0.0.0.0:5432
+policy	Initialize containers	2026-10-25T19:05:57.5671063Z 5432/tcp -> [::]:5432
+policy	Initialize containers	2026-10-25T19:05:57.5717367Z ##[endgroup]
+policy	Initialize containers	2026-10-25T19:05:57.5726358Z ##[group]Waiting for all services to be ready
+policy	Initialize containers	2026-10-25T19:05:57.5739794Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:05:57.5875887Z starting
+policy	Initialize containers	2026-10-25T19:05:57.5904437Z postgres service is starting, waiting 2 seconds before checking again.
+policy	Initialize containers	2026-10-25T19:05:59.5894680Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:05:59.6019089Z starting
+policy	Initialize containers	2026-10-25T19:05:59.6031977Z postgres service is starting, waiting 4 seconds before checking again.
+policy	Initialize containers	2026-10-25T19:06:03.9496612Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Initialize containers	2026-10-25T19:06:03.9618739Z healthy
+policy	Initialize containers	2026-10-25T19:06:03.9647532Z postgres service is healthy.
+policy	Initialize containers	2026-10-25T19:06:03.9648269Z ##[endgroup]
+policy	Run actions/checkout@v4	﻿2026-10-25T19:06:03.9943170Z ##[group]Run actions/checkout@v4
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9943728Z with:
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9943940Z   repository: alexj11324/Mikka
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9946321Z   token: ***
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9946524Z   ssh-strict: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9946725Z   ssh-user: git
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9946932Z   persist-credentials: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9947158Z   clean: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9947363Z   sparse-checkout-cone-mode: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9947610Z   fetch-depth: 1
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9947802Z   fetch-tags: false
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9948003Z   show-progress: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9948203Z   lfs: false
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9948387Z   submodules: false
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9948595Z   set-safe-directory: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9949067Z   allow-unsafe-pr-checkout: false
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9949582Z env:
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9949936Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9950444Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9951032Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9951568Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9951989Z   REQUIRE_POLICY_DB: 1
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9952194Z   CI: true
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9952402Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9952682Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9952937Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9953237Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9953510Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run actions/checkout@v4	2026-10-25T19:06:03.9953730Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.0927325Z Syncing repository: alexj11324/Mikka
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.0929454Z ##[group]Getting Git version info
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.0930040Z Working directory is '/home/runner/work/Mikka/Mikka'
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.0930973Z [command]/usr/bin/git version
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1003282Z git version 2.55.0
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1025185Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1040904Z Temporarily overriding HOME='/home/runner/work/_temp/973e3eda-6b11-483b-805a-4ab888f422d8' before making global git config changes
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1042290Z Adding repository directory to the temporary git global config as a safe directory
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1047885Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Mikka/Mikka
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1100794Z Deleting the contents of '/home/runner/work/Mikka/Mikka'
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1104554Z ##[group]Initializing the repository
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1108411Z [command]/usr/bin/git init /home/runner/work/Mikka/Mikka
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1229590Z hint: Using 'master' as the name for the initial branch. This default branch name
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1230640Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1234535Z hint: to use in all of your new repositories, which will suppress this warning,
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1235245Z hint: call:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1235595Z hint:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1236094Z hint: 	git config --global init.defaultBranch <name>
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1236603Z hint:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1237067Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1237880Z hint: 'development'. The just-created branch can be renamed via this command:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1238587Z hint:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1239232Z hint: 	git branch -m <name>
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1239777Z hint:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1240633Z hint: Disable this message with "git config set advice.defaultBranchName false"
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1241758Z Initialized empty Git repository in /home/runner/work/Mikka/Mikka/.git/
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1245366Z [command]/usr/bin/git remote add origin https://github.com/alexj11324/Mikka
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1294791Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1295485Z ##[group]Disabling automatic garbage collection
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1299768Z [command]/usr/bin/git config --local gc.auto 0
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1332347Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1333438Z ##[group]Setting up auth
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1340956Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1376023Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1776094Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.1822943Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.2059296Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.2095517Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.2327588Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.2372408Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.2373031Z ##[group]Fetching the repository
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.2382897Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +721bbf3615f7b9a3672c149112382dac75c72cb8:refs/remotes/origin/codex/org-policy-230-231-20261025
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9079208Z From https://github.com/alexj11324/Mikka
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9080272Z  * [new ref]         721bbf3615f7b9a3672c149112382dac75c72cb8 -> origin/codex/org-policy-230-231-20261025
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9084892Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9085784Z ##[group]Determining the checkout info
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9088447Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9096455Z [command]/usr/bin/git sparse-checkout disable
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9150292Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9182733Z ##[group]Checking out the ref
+policy	Run actions/checkout@v4	2026-10-25T19:06:04.9196010Z [command]/usr/bin/git checkout --progress --force -B codex/org-policy-230-231-20261025 refs/remotes/origin/codex/org-policy-230-231-20261025
+policy	Run actions/checkout@v4	2026-10-25T19:06:05.0125605Z Switched to a new branch 'codex/org-policy-230-231-20261025'
+policy	Run actions/checkout@v4	2026-10-25T19:06:05.0131248Z branch 'codex/org-policy-230-231-20261025' set up to track 'origin/codex/org-policy-230-231-20261025'.
+policy	Run actions/checkout@v4	2026-10-25T19:06:05.0137688Z ##[endgroup]
+policy	Run actions/checkout@v4	2026-10-25T19:06:05.0183301Z [command]/usr/bin/git log -1 --format=%H
+policy	Run actions/checkout@v4	2026-10-25T19:06:05.0210598Z 721bbf3615f7b9a3672c149112382dac75c72cb8
+policy	Run pnpm/action-setup@v4	﻿2026-10-25T19:06:05.0433486Z ##[group]Run pnpm/action-setup@v4
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0433780Z with:
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0433970Z   version: 10.34.3
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0434174Z   dest: ~/setup-pnpm
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0434378Z   run_install: null
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0434581Z   cache: false
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0434794Z   cache_dependency_path: pnpm-lock.yaml
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0435092Z   package_json_file: package.json
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0435337Z   standalone: false
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0435531Z env:
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0435840Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0436366Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0436847Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0437377Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0437809Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0438017Z   CI: true
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0438221Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0438531Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0439093Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0439409Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0439686Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.0439919Z ##[endgroup]
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.1900378Z ##[group]Running self-installer...
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.6054809Z (node:2945) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.6055925Z (Use `node --trace-deprecation ...` to show where the warning was created)
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.7596282Z Progress: resolved 1, reused 0, downloaded 0, added 0
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.7692040Z Packages: +1
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:05.7692709Z +
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.1803907Z Progress: resolved 1, reused 0, downloaded 1, added 1, done
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2062750Z 
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2063595Z dependencies:
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2064458Z + pnpm 10.34.3 (12.15.0 is available)
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2064778Z 
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2087273Z Done in 825ms
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2267585Z ##[endgroup]
+policy	Run pnpm/action-setup@v4	2026-10-25T19:06:06.2268020Z Installation Completed!
+policy	Run actions/setup-node@v4	﻿2026-10-25T19:06:06.2487914Z ##[group]Run actions/setup-node@v4
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2488202Z with:
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2488449Z   node-version: 24
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2488643Z   cache: pnpm
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2489132Z   always-auth: false
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2489351Z   check-latest: false
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2491785Z   token: ***
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2491984Z env:
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2492284Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2492783Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2493257Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2493767Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2494197Z   REQUIRE_POLICY_DB: 1
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2494403Z   CI: true
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2494609Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2494878Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2495340Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2495684Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2495961Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2496253Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.2496554Z ##[endgroup]
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.3880301Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.3884920Z (node:2959) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.3886196Z (Use `node --trace-deprecation ...` to show where the warning was created)
+policy	Run actions/setup-node@v4	2026-10-25T19:06:06.3888226Z ##[group]Environment details
+policy	Run actions/setup-node@v4	2026-10-25T19:06:08.4263706Z node: v24.21.0
+policy	Run actions/setup-node@v4	2026-10-25T19:06:08.4264116Z npm: 11.19.0
+policy	Run actions/setup-node@v4	2026-10-25T19:06:08.4264441Z yarn: 1.22.22
+policy	Run actions/setup-node@v4	2026-10-25T19:06:08.4265676Z ##[endgroup]
+policy	Run actions/setup-node@v4	2026-10-25T19:06:08.4311402Z [command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent
+policy	Run actions/setup-node@v4	2026-10-25T19:06:08.9842650Z /home/runner/setup-pnpm/node_modules/.bin/store/v10
+policy	Run actions/setup-node@v4	2026-10-25T19:06:09.2449798Z Cache hit for: node-cache-Linux-x64-pnpm-7a3bc9c6f164f6d6b388d6f8d9d1f722552a0289d09779bc66a7f73869aed8a6
+policy	Run actions/setup-node@v4	2026-10-25T19:06:09.2584843Z (node:2959) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+policy	Run actions/setup-node@v4	2026-10-25T19:06:10.5417513Z Received 4194304 of 559178663 (0.8%), 4.0 MBs/sec
+policy	Run actions/setup-node@v4	2026-10-25T19:06:11.5411525Z Received 121634816 of 559178663 (21.8%), 58.0 MBs/sec
+policy	Run actions/setup-node@v4	2026-10-25T19:06:12.5459777Z Received 264241152 of 559178663 (47.3%), 83.9 MBs/sec
+policy	Run actions/setup-node@v4	2026-10-25T19:06:13.5422237Z Received 411041792 of 559178663 (73.5%), 98.0 MBs/sec
+policy	Run actions/setup-node@v4	2026-10-25T19:06:14.4691004Z Received 559178663 of 559178663 (100.0%), 108.2 MBs/sec
+policy	Run actions/setup-node@v4	2026-10-25T19:06:14.4692235Z Cache Size: ~533 MB (559178663 B)
+policy	Run actions/setup-node@v4	2026-10-25T19:06:14.4813586Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ceb5c3c1-7df0-4e3c-93b2-bcac3feeb429/cache.tzst -P -C /home/runner/work/Mikka/Mikka --use-compress-program unzstd
+policy	Run actions/setup-node@v4	2026-10-25T19:06:21.6595340Z Cache restored successfully
+policy	Run actions/setup-node@v4	2026-10-25T19:06:21.6900308Z Cache restored from key: node-cache-Linux-x64-pnpm-7a3bc9c6f164f6d6b388d6f8d9d1f722552a0289d09779bc66a7f73869aed8a6
+policy	Run pnpm install --frozen-lockfile	﻿2026-10-25T19:06:21.7179963Z ##[group]Run pnpm install --frozen-lockfile
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7180405Z [36;1mpnpm install --frozen-lockfile[0m
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7435397Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7435782Z env:
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7436123Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7436632Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7437120Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7437671Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7438112Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7438356Z   CI: true
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7438566Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7439210Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7439501Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7439825Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7440169Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7440455Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:21.7440768Z ##[endgroup]
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:22.0918163Z Scope: all 4 workspace projects
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:22.1596360Z Lockfile is up to date, resolution step is skipped
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:22.2667414Z Progress: resolved 1, reused 0, downloaded 0, added 0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:22.4002608Z Packages: +1373
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:22.4004124Z ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:23.2893450Z Progress: resolved 1373, reused 788, downloaded 0, added 0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:24.2897138Z Progress: resolved 1373, reused 1370, downloaded 0, added 377
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:25.2900165Z Progress: resolved 1373, reused 1370, downloaded 0, added 627
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:26.2903574Z Progress: resolved 1373, reused 1370, downloaded 0, added 825
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:27.2930365Z Progress: resolved 1373, reused 1370, downloaded 0, added 1350
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:28.2924686Z Progress: resolved 1373, reused 1370, downloaded 0, added 1372
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:28.4000278Z Progress: resolved 1373, reused 1370, downloaded 0, added 1373, done
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6946099Z 
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6946940Z dependencies:
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6947637Z + @ai-sdk/openai 4.0.99
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6948436Z + @ai-sdk/openai-compatible 3.0.75
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6949442Z + @ai-sdk/react 4.0.152
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6949997Z + @ai-sdk/workflow 2.0.80
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6950472Z + @base-ui/react 1.9.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6950948Z + @better-auth/core 1.7.12
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6951509Z + @better-auth/oauth-provider 1.7.12
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6952146Z + @chat-adapter/state-pg 4.43.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6952769Z + @chat-adapter/telegram 4.43.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6953279Z + @composio/core 0.26.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6953758Z + @dnd-kit/core 6.3.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6954217Z + @dnd-kit/sortable 10.0.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6954734Z + @dnd-kit/utilities 3.2.2
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6955275Z + @floating-ui/dom 1.8.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6955740Z + @heroui/react 3.2.6
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6956358Z + @heroui/styles 3.2.6
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6956998Z + @internationalized/date 3.12.4
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6957680Z + @mikka/protocol 0.0.1 <- packages/protocol
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6958370Z + @modelcontextprotocol/server 2.3.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6959143Z + @openuidev/lang-core 1.0.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6959702Z + @openuidev/react-lang 1.0.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6960319Z + @openuidev/react-ui 0.18.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6960773Z + @shadcn/react 0.3.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6961233Z + @tiptap/core 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6961786Z + @tiptap/extension-collaboration 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6962513Z + @tiptap/extension-collaboration-caret 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6962948Z + @tiptap/extension-highlight 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6963296Z + @tiptap/extension-list 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6963617Z + @tiptap/extension-mention 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6963934Z + @tiptap/extension-table 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6964599Z + @tiptap/extension-text-align 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6964901Z + @tiptap/extensions 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6965165Z + @tiptap/pm 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6965409Z + @tiptap/react 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6965664Z + @tiptap/starter-kit 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6965931Z + @tiptap/suggestion 3.32.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6966189Z + @tiptap/y-tiptap 3.0.10
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6966452Z + @vercel/analytics 1.3.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6966692Z + @vercel/oidc 4.0.2
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6966908Z + ai 7.0.148
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6967149Z + beautiful-mermaid 1.1.3
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6967396Z + better-auth 1.7.12
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6967608Z + chat 4.43.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6967862Z + class-variance-authority 0.7.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6968129Z + clsx 2.1.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6968343Z + cmdk 1.1.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6968532Z + cn 0.5.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6969272Z + date-fns 4.1.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6969601Z + dompurify 3.4.17
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6969849Z + drizzle-orm 0.45.4
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6970121Z + embla-carousel-react 8.5.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6970402Z + input-otp 1.4.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6970623Z + katex 0.16.47
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6970849Z + lucide-react 1.60.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6971095Z + mcp-handler 2.3.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6971315Z + mermaid 12.2.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6971524Z + motion 14.5.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6971745Z + next 16.1.6
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6971969Z + next-intl 4.14.9
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6972205Z + next-themes 0.4.6
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6972419Z + pg 8.23.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6972656Z + playwright-core 1.64.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6972918Z + posthog-js 1.438.13
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6973151Z + react 19.3.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6973465Z + react-day-picker 9.8.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6973976Z + react-dom 19.3.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6974212Z + react-markdown 10.1.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6974501Z + react-resizable-panels 4.14.7
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6974816Z + react-syntax-highlighter 16.1.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6975089Z + recharts 3.10.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6975314Z + rehype-katex 7.0.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6975557Z + remark-gfm 4.0.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6975779Z + remark-math 6.0.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6975987Z + shadcn 4.22.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6976195Z + shiki 4.5.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6976406Z + sonner 1.7.4
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6976602Z + swr 2.5.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6976823Z + tailwind-merge 3.7.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6977066Z + tw-animate-css 1.4.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6977293Z + vaul 1.1.2
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6977490Z + workflow 5.2.3
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6977715Z + y-protocols 1.0.7
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6977927Z + yjs 13.6.33
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6978119Z + zod 4.6.7
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6978229Z 
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6978329Z devDependencies:
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6978570Z + @playwright/test 1.64.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6979045Z + @tailwindcss/postcss 4.3.3
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6979305Z + @types/node 25.9.9
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6979541Z + @types/pg 8.23.1
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6979764Z + @types/react 19.3.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6980002Z + @types/react-dom 19.3.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6980319Z + @types/react-syntax-highlighter 15.5.13
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6980727Z + @typescript/native-preview 7.0.0-dev.20260707.2
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6981060Z + happy-dom 15.11.7
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6981282Z + oxlint 1.89.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6981489Z + postcss 8.5.31
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6981709Z + prettier 3.9.10
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6981984Z + prettier-plugin-tailwindcss 0.7.4
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6982283Z + tailwindcss 4.3.3
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6982494Z + tsx 4.23.15
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6982707Z + typescript 5.9.3
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6982938Z + wrangler 4.152.0
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.6983058Z 
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7570245Z ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7571511Z │                                                                              │
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7572691Z │   Ignored build scripts: @openuidev/lang-core@1.0.1, cbor-extract@2.2.2,     │
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7573952Z │   core-js@3.51.0, workerd@1.20261019.1.                                      │
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7575541Z │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7576715Z │   to run scripts.                                                            │
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7577705Z │                                                                              │
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7579071Z ╰──────────────────────────────────────────────────────────────────────────────╯
+policy	Run pnpm install --frozen-lockfile	2026-10-25T19:06:29.7710903Z Done in 7.9s using pnpm v10.34.3
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	﻿2026-10-25T19:06:29.8319274Z ##[group]Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8319918Z [36;1mpsql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'[0m
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8386033Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8386396Z env:
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8386725Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8387242Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8387717Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8388232Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8388665Z   REQUIRE_POLICY_DB: 1
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8389175Z   CI: true
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8389386Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8389673Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8389942Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8390295Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8390575Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8390859Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.8391353Z ##[endgroup]
+policy	Run psql "$MIKKA_DATABASE_URL" -c 'CREATE DATABASE policy_workspace_e2e'	2026-10-25T19:06:29.9752746Z CREATE DATABASE
+policy	Run MIGRATE=1 node scripts/migrate.mjs	﻿2026-10-25T19:06:29.9791850Z ##[group]Run MIGRATE=1 node scripts/migrate.mjs
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9792256Z [36;1mMIGRATE=1 node scripts/migrate.mjs[0m
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9857022Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9857375Z env:
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9857699Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9858192Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9858913Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9859474Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9859896Z   REQUIRE_POLICY_DB: 1
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9860110Z   CI: true
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9860316Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9860593Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9860861Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9861172Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9861487Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9861783Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:29.9862092Z ##[endgroup]
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.0829395Z migrate: applied 20261023221259_application_baseline.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1014234Z migrate: applied 0001_agents_devices.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1029138Z migrate: applied 0002_device_enabled.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1049290Z migrate: applied 0003_agents_columns.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1183473Z migrate: applied 0004_linear_sync.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1367997Z migrate: applied 0004_telegram_chat.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1393607Z migrate: applied 0005_linear_sync_retry_and_comment_keys.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1409487Z migrate: applied 0005_mikka_issue_metadata.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1419871Z migrate: applied 0006_linear_comment_authorship.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1453277Z migrate: applied 0007_coordinator_events.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1463793Z migrate: applied 0007_linear_description_snapshot.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1496150Z migrate: applied 0008_coordinator_sessions.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1507256Z migrate: applied 0008_linear_mikka_issue_metadata.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1649020Z migrate: applied 0009_oauth_provider.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1660171Z migrate: applied 0010_coordinator_session_error.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1671368Z migrate: applied 0011_coordinator_event_tier.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1697112Z migrate: applied 0012_run_tokens.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1719283Z migrate: applied 20261023143000_decision_calls.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1752873Z migrate: applied 20261023150000_suggestions.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1789470Z migrate: applied 20261023154800_issue_scope.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1806680Z migrate: applied 20261023161128_issue_scope_source.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1823045Z migrate: applied 20261023170500_drop_decision_calls.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1841670Z migrate: applied 20261023171500_suggestion_trigger_checks.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1926902Z migrate: applied 20261023213851_group_conversations.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1941194Z migrate: applied 20261025000400_run_retries.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1954212Z migrate: applied 20261025005600_mikka_linear_sync_setting.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.1986046Z migrate: applied 20261025013400_run_checkpoints.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2016230Z migrate: applied 20261025043000_pending_actions.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2035020Z migrate: applied 20261025051201_run_dispatch_keys.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2138841Z migrate: applied 20261025051202_factory_192_stages.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2215194Z migrate: applied 20261025051203_factory_194_approvals.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2269155Z migrate: applied 20261025051204_factory_195_monitor.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2324389Z migrate: applied 20261025051205_factory_192_questions.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2351367Z migrate: applied 20261025052001_operation_ledger.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2455495Z migrate: applied 20261025052031_session_mailboxes.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2636384Z migrate: applied 20261025052032_group_artifact_review.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2661068Z migrate: applied 20261025052033_group_review_mailboxes.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2704438Z migrate: applied 20261025052200_credential_broker.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2716764Z migrate: applied 20261025052201_credential_browser_binding.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2730869Z migrate: applied 20261025052202_credential_handoff.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2744761Z migrate: applied 20261025060001_calendar_operation_binding.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2765104Z migrate: applied 20261025070001_account_action_intents.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.2959264Z migrate: applied 20261025070600_self_improvement.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3049301Z migrate: applied 20261025082237_group_turn_mailbox_policy.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3133318Z migrate: applied 20261025083303_improvement_skill_assignments.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3190094Z migrate: applied 20261025141650_byos_credential_publications.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3234176Z migrate: applied 20261025141651_byos_bindings_oauth.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3248677Z migrate: applied 20261025141652_byos_device_authorization.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3283304Z migrate: applied 20261025141653_byos_access_and_cleanup.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3302924Z migrate: applied 20261025141654_byos_native_runs.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3329853Z migrate: applied 20261025141655_byos_enrollment_transfers.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3363951Z migrate: applied 20261025141656_byos_enrollment_cleanup.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3387699Z migrate: applied 20261025160000_byos_environment_transfers.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3493041Z migrate: applied 20261025170000_security_audit_application.sql to MIKKA_DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3602183Z migrate: applied 0004_mikka_workspace_tables.sql to DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3666865Z migrate: applied 0006_workspace_tables.sql to DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3732713Z migrate: applied 0014_workspace_teams.sql to DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3757231Z migrate: applied 20261025005500_mikka_team_tables.sql to DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3846769Z migrate: applied 20261025170001_security_audit_workspace.sql to DATABASE_URL
+policy	Run MIGRATE=1 node scripts/migrate.mjs	2026-10-25T19:06:30.3877155Z migrate: applied 20261025180000_organization_policy.sql to DATABASE_URL
+policy	Repeated migrations apply nothing	﻿2026-10-25T19:06:30.3999406Z ##[group]Run MIGRATE=1 node scripts/migrate.mjs > policy-migrations-repeat.log
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4000021Z [36;1mMIGRATE=1 node scripts/migrate.mjs > policy-migrations-repeat.log[0m
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4000486Z [36;1mtest ! -s policy-migrations-repeat.log[0m
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4065916Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4066271Z env:
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4066605Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4067123Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4067831Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4068366Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4069119Z   REQUIRE_POLICY_DB: 1
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4069350Z   CI: true
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4069571Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4069856Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4070163Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4070465Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4070754Z   POLICY_EXTERNAL_SERVER: 1
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4071056Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Repeated migrations apply nothing	2026-10-25T19:06:30.4071362Z ##[endgroup]
+policy	Run pnpm test:policy | tee policy-postgres.log	﻿2026-10-25T19:06:30.4887237Z ##[group]Run pnpm test:policy | tee policy-postgres.log
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4887688Z [36;1mpnpm test:policy | tee policy-postgres.log[0m
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4952407Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4952784Z env:
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4953113Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4953625Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4954099Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4954622Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4955050Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4955271Z   CI: true
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4955481Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4955762Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4956025Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4956341Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4956667Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4956962Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.4957293Z ##[endgroup]
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.8200282Z 
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.8200907Z > next-app@0.0.1 test:policy /home/runner/work/Mikka/Mikka
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.8201584Z > node --import tsx --test lib/policy/*.test.ts
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:30.8201842Z 
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.3891517Z ✔ lower defaults never erase ceilings, explicit empty network and model lists deny (10.615878ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.3920700Z ✔ strict fields, schema version, scope, TTL and canonical HTTPS endpoint (1.475533ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.3950242Z ✔ signature, unknown fields, tampering and key rotation fail closed (6.053536ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.3980195Z ✔ every HTTP attempt rechecks policy, endpoint, model aliases, redirect and cancellation (36.800582ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.3982200Z ✔ signatures survive JSON persistence with optional undefined values (2.053886ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.5547112Z ✔ compaction retry rechecks policy after published, without SDK hidden sends (50.240977ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.5560876Z ✔ compaction retry rechecks policy after revoked, without SDK hidden sends (5.803196ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:31.5562725Z ✔ compaction retry rechecks policy after versionUpdated, without SDK hidden sends (6.282334ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.4802084Z ▶ real PostgreSQL policy transactions, HTTP contract, tenant isolation, revocation and failure
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.4829085Z   ✔ no policy is explicitly unmanaged; missing origin, bearer and member writes refused (86.993496ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.5536616Z   ✔ twelve concurrent publishers produce one winner, one version and one audit event (94.151869ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.6010618Z   ✔ tenant rules differ; route aliases, endpoints, region and unmanaged-scope omission cannot bypass (48.79926ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.6306767Z   ✔ revoke then rollback creates monotonic version, new instances see it and old signed bytes cannot supersede head (29.263567ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.6509758Z   ✔ audit failure rolls back publication; suspended users lose current reads and writes (19.956388ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.6636000Z   ✔ missing current version and replayed signed payload cannot become unmanaged or current (11.401611ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.6772873Z   ✔ policy decisions reuse one held transaction connection and commit denial audit (13.682059ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7120028Z   ✔ tool admission fences publication and denies without invoking side effects (35.521303ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7552691Z   ✔ real policy publication, revoke and revision during retryable SDK failure prevent a second send (42.942717ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7604326Z   ✔ database unavailable returns 503 with no implicit unmanaged fallback (1.515939ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7606379Z ✔ real PostgreSQL policy transactions, HTTP contract, tenant isolation, revocation and failure (471.117189ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7976892Z ✔ real PG worker scope validates continuation parents and rejects untrusted history (101.702678ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7979616Z ✔ transaction adapter binds repeated and reordered values without SQL interpolation (5.833363ms)
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7982148Z ℹ tests 21
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7982612Z ℹ suites 0
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7983055Z ℹ pass 21
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7983436Z ℹ fail 0
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7983839Z ℹ cancelled 0
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7984264Z ℹ skipped 0
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7984659Z ℹ todo 0
+policy	Run pnpm test:policy | tee policy-postgres.log	2026-10-25T19:06:32.7985126Z ℹ duration_ms 1946.4026
+policy	Run pnpm --filter @mikka/protocol typecheck	﻿2026-10-25T19:06:32.8170480Z ##[group]Run pnpm --filter @mikka/protocol typecheck
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8170909Z [36;1mpnpm --filter @mikka/protocol typecheck[0m
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8234393Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8234744Z env:
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8235066Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8235634Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8236134Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8236653Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8237087Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8237303Z   CI: true
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8237509Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8237790Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8238052Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8238364Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8238684Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8239254Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:32.8239568Z ##[endgroup]
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:33.1864644Z 
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:33.1865652Z > @mikka/protocol@0.0.1 typecheck /home/runner/work/Mikka/Mikka/packages/protocol
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:33.1866594Z > tsgo --noEmit -p tsconfig.json
+policy	Run pnpm --filter @mikka/protocol typecheck	2026-10-25T19:06:33.1866940Z 
+policy	Run pnpm --filter @mikka/daemon typecheck	﻿2026-10-25T19:06:33.4581390Z ##[group]Run pnpm --filter @mikka/daemon typecheck
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4581814Z [36;1mpnpm --filter @mikka/daemon typecheck[0m
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4644982Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4645353Z env:
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4645680Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4646211Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4646690Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4647214Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4647634Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4647858Z   CI: true
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4648073Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4648355Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4648618Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4649216Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4649543Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4649835Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.4650144Z ##[endgroup]
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.8085438Z 
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.8086315Z > @mikka/daemon@0.0.1 typecheck /home/runner/work/Mikka/Mikka/packages/daemon
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.8087179Z > tsgo --noEmit -p tsconfig.json
+policy	Run pnpm --filter @mikka/daemon typecheck	2026-10-25T19:06:33.8087488Z 
+policy	Run pnpm --filter @mikka/protocol test	﻿2026-10-25T19:06:35.6365542Z ##[group]Run pnpm --filter @mikka/protocol test
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6366300Z [36;1mpnpm --filter @mikka/protocol test[0m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6433855Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6434463Z env:
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6435025Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6435926Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6436571Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6437158Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6437602Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6437823Z   CI: true
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6438052Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6438348Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6438621Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6439270Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6439945Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6440467Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.6441036Z ##[endgroup]
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.9847070Z 
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.9847727Z > @mikka/protocol@0.0.1 test /home/runner/work/Mikka/Mikka/packages/protocol
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.9848176Z > vitest run
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:35.9848307Z 
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.2784678Z 
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.2789461Z [1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/runner/work/Mikka/Mikka/packages/protocol[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.2790485Z 
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.6716290Z  [32m✓[39m src/cycles.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.6824738Z  [32m✓[39m src/subscription.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.7134808Z  [32m✓[39m src/agent-policy.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.8647971Z  [32m✓[39m src/git-remote.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.8969619Z  [32m✓[39m src/analytics-client.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:36.9027492Z  [32m✓[39m src/roles.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.1285947Z  [32m✓[39m src/skill.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.1452920Z  [32m✓[39m src/plan.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.1904018Z  [32m✓[39m src/orchestrator.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.3110728Z  [32m✓[39m src/analytics.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.3528455Z  [32m✓[39m src/issue-share.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.3611904Z  [32m✓[39m src/estimates.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.6085671Z  [32m✓[39m src/device.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.6120702Z  [32m✓[39m src/run.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.6800729Z  [32m✓[39m src/bridge.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.8923521Z  [32m✓[39m src/auth.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.9253202Z  [32m✓[39m src/skill-presets/index.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:37.9997627Z  [32m✓[39m src/version.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1507565Z  [32m✓[39m src/preview.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1655150Z  [32m✓[39m src/collab.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1704465Z 
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1712082Z [2m Test Files [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1714089Z [2m      Tests [22m [1m[32m224 passed[39m[22m[90m (224)[39m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1714932Z [2m   Start at [22m 19:06:36
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1721667Z [2m   Duration [22m 1.88s[2m (import 63%, transform 21%, tests 12%, worker 4%)[22m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1737097Z 
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1738000Z [2m    Isolate [22m [33m20 workers spawned[39m[2m · ~133ms startup each (spawn + environment, per file)[22m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1739728Z [2m            [22m [2mat least ~754ms faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m
+policy	Run pnpm --filter @mikka/protocol test	2026-10-25T19:06:38.1740443Z 
+policy	Install pinned hosted-runner test image	﻿2026-10-25T19:06:38.2068617Z ##[group]Run docker pull node@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2069794Z [36;1mdocker pull node@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a[0m
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2132816Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2133177Z env:
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2133511Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2134032Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2134512Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2135037Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2135472Z   REQUIRE_POLICY_DB: 1
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2135684Z   CI: true
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2135893Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2136195Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2136493Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2136805Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2137094Z   POLICY_EXTERNAL_SERVER: 1
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2137388Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.2137689Z ##[endgroup]
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:38.8492406Z docker.io/library/node@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a: Pulling from library/node
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1058043Z 8a051559ff62: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1058646Z 55f3510f14ae: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1059371Z e0959ba39613: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1059865Z 8145ffc7a2f0: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1060367Z 7567531c24b0: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1060857Z d58525be645b: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1061353Z c7f205271b29: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1061850Z 96c812eb334e: Pulling fs layer
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1062549Z 8145ffc7a2f0: Waiting
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1062979Z 7567531c24b0: Waiting
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1063391Z d58525be645b: Waiting
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:39.1063811Z c7f205271b29: Waiting
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.0034644Z 55f3510f14ae: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.0035821Z 55f3510f14ae: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.0961250Z 8a051559ff62: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.0971203Z 8a051559ff62: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.1544174Z e0959ba39613: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.1547102Z e0959ba39613: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.4045920Z 7567531c24b0: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.4046801Z 7567531c24b0: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.9740970Z c7f205271b29: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:40.9742116Z c7f205271b29: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:41.1526653Z d58525be645b: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:41.1527751Z d58525be645b: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:41.2876127Z 96c812eb334e: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:41.2876780Z 96c812eb334e: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:41.4856743Z 8145ffc7a2f0: Verifying Checksum
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:41.4857424Z 8145ffc7a2f0: Download complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:42.0924874Z 8a051559ff62: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:44.7667350Z 55f3510f14ae: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:47.1471391Z e0959ba39613: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:53.6526437Z 8145ffc7a2f0: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:53.6666231Z 7567531c24b0: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:56.0168646Z d58525be645b: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:56.0514022Z c7f205271b29: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:56.0634553Z 96c812eb334e: Pull complete
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:56.0669231Z Digest: sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:56.0674786Z Status: Downloaded newer image for node@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
+policy	Install pinned hosted-runner test image	2026-10-25T19:06:56.0682791Z docker.io/library/node@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
+policy	Run pnpm --filter @mikka/daemon test	﻿2026-10-25T19:06:56.0730574Z ##[group]Run pnpm --filter @mikka/daemon test
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0730985Z [36;1mpnpm --filter @mikka/daemon test[0m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0793870Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0794228Z env:
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0794554Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0795069Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0795559Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0796079Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0796508Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0796739Z   CI: true
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0796951Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0797237Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0797508Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0797840Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0798177Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0798470Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.0799036Z ##[endgroup]
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.4156932Z 
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.4157726Z > @mikka/daemon@0.0.1 test /home/runner/work/Mikka/Mikka/packages/daemon
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.4158192Z > vitest run
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.4158331Z 
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.7140620Z 
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.7144483Z [1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/runner/work/Mikka/Mikka/packages/daemon[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:56.7145024Z 
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:57.4841647Z  [32m✓[39m src/quota/quota.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:59.4206141Z  [32m✓[39m test/agents.test.ts [2m([22m[2m24 tests[22m[2m | [22m[33m7 skipped[39m[2m)[22m[33m 1939[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:59.4207296Z    [32m✓[39m publish [2m(9)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:59.4208049Z      [32m✓[39m to the issue branch [2m(5)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:06:59.4209551Z        [33m[2m✓[22m[39m pushes each run's commit to the same branch, fast-forward[33m 398[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:00.1610408Z  [2m[90m↓[39m[22m test/real-agents.test.ts [2m([22m[2m0 test[22m[2m)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:02.4305514Z  [32m✓[39m test/hardening.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1429[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:02.4306608Z    [32m✓[39m data dir lock [2m(3)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:02.4307733Z      [33m[2m✓[22m[39m takes over at once from a crashed holder, refuses a live one[33m 539[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:03.0160783Z  [32m✓[39m src/permissions.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:03.4370907Z  [32m✓[39m test/server-link-http.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:03.8815258Z warning: remote HEAD refers to nonexistent ref, unable to checkout
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:04.0637846Z warning: remote HEAD refers to nonexistent ref, unable to checkout
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:05.1260412Z  [32m✓[39m test/worktrees.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1422[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:05.1261669Z    [32m✓[39m discarding an empty run [2m(5)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:05.1262858Z      [33m[2m✓[22m[39m skips a run whose branch is already gone instead of failing[33m 314[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:06.1006847Z  [32m✓[39m test/subscription.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 334[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:08.5784166Z  [32m✓[39m test/commands.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 1706[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:08.5803404Z    [32m✓[39m run commands [2m(5)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:08.5804875Z      [33m[2m✓[22m[39m hands a person's message to the running agent and acks it once[33m 440[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:08.5806837Z      [33m[2m✓[22m[39m cancels the run when a person stops it, and closes its message[33m 501[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:08.5809421Z      [33m[2m✓[22m[39m ignores commands for runs it does not have, and keeps polling after a network cut[33m 483[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0024161Z  [32m✓[39m test/runs.test.ts [2m([22m[2m28 tests[22m[2m)[22m[33m 11758[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0026015Z    [32m✓[39m mock runs [2m(8)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0027641Z      [33m[2m✓[22m[39m runs a fixture in its own worktree, writes the file change and ends in review[33m 494[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0030004Z      [33m[2m✓[22m[39m runs the approved setup recipe, then the repo's tests in the worktree[33m 1544[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0049591Z      [33m[2m✓[22m[39m loses no chunks while the server is unreachable[33m 1030[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0051218Z      [33m[2m✓[22m[39m resumes an active run after the daemon restarts[33m 1085[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0052246Z    [32m✓[39m follow-up runs [2m(3)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0053376Z      [33m[2m✓[22m[39m continues the earlier session with only the follow-up[33m 840[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0054960Z      [33m[2m✓[22m[39m starts a new session with the full brief in a fresh worktree[33m 561[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0056404Z      [33m[2m✓[22m[39m starts a new session when the earlier one is gone[33m 538[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0057394Z    [32m✓[39m run stops [2m(15)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0058558Z      [33m[2m✓[22m[39m stall: the watchdog stops a run with no progress as timeout[33m 559[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0060376Z      [33m[2m✓[22m[39m lease: the retry works on in the lost attempt's worktree[33m 398[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0061870Z      [33m[2m✓[22m[39m checkpoint: another machine takes over from the saved work[33m 439[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0063280Z      [33m[2m✓[22m[39m hands an issue to a human after the retry cap[33m 501[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0080428Z  [32m✓[39m test/subscription-worker-client.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 1149[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:10.0082225Z    [33m[2m✓[22m[39m cancelling during preparation cannot start inference afterward[33m 755[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.1866599Z  [32m✓[39m test/codex-subscription.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 713[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4538606Z  [32m✓[39m test/adapters.test.ts [2m([22m[2m36 tests[22m[2m | [22m[33m2 skipped[39m[2m)[22m[33m 13023[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4540732Z    [32m✓[39m claude_code adapter [2m(3)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4542367Z      [33m[2m✓[22m[39m hands in through the MCP tool, then the daemon verifies, commits and pushes[33m 530[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4544873Z      [33m[2m✓[22m[39m starts the CLI with the model the assignment named, and with none when it named none[33m 313[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4546336Z    [32m✓[39m codex adapter [2m(3)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4547866Z      [33m[2m✓[22m[39m hands in through the MCP tool, then the daemon verifies, commits and pushes[33m 374[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4557064Z      [33m[2m✓[22m[39m starts the CLI with the model the assignment named, and with none when it named none[33m 320[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4558618Z    [32m✓[39m cursor adapter [2m(3)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4560558Z      [33m[2m✓[22m[39m hands in through the MCP tool, then the daemon verifies, commits and pushes[33m 558[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4562630Z      [33m[2m✓[22m[39m ends as turn_ended, with nothing committed, when the agent never hands in[33m 344[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4564709Z      [33m[2m✓[22m[39m starts the CLI with the model the assignment named, and with none when it named none[33m 568[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4566150Z    [32m✓[39m the issue branch [2m(2)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4567571Z      [33m[2m✓[22m[39m builds on the remote branch, keeping a person's commit, and pushes there[33m 457[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4569887Z      [33m[2m✓[22m[39m starts from the base branch when the issue branch cannot be fetched[33m 465[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4571208Z    [32m✓[39m workspace agent policy (ADR 0028) [2m(2)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4572578Z      [33m[2m✓[22m[39m keeps a verified run local when the workspace turned pushes off[33m 386[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4574158Z      [33m[2m✓[22m[39m commits and pushes nothing for a read-only check (ADR 0046)[33m 361[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4575267Z    [32m✓[39m verify [2m(1)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4576588Z      [33m[2m✓[22m[39m fails a hand-in, and commits nothing, when verify changes the worktree[33m 353[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4577728Z    [32m✓[39m interjections and cancel [2m(5)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4579308Z      [33m[2m✓[22m[39m claude: a message during the turn reaches the CLI and can lead to a hand-in[33m 466[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4581396Z      [33m[2m✓[22m[39m claude: a hand-in read before the last turn ends keeps that turn's last words[33m 405[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4583399Z      [33m[2m✓[22m[39m codex: a message during the turn is a turn/steer[33m 356[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4585007Z      [33m[2m✓[22m[39m claude_code: cancel stops the CLI and ends the run as cancelled[33m 301[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4586633Z      [33m[2m✓[22m[39m cursor: cancel stops the CLI and ends the run as cancelled[33m 443[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4587840Z    [32m✓[39m claude_code follow-up run [2m(4)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4589430Z      [33m[2m✓[22m[39m continues the earlier session with only the follow-up[33m 324[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4591064Z      [33m[2m✓[22m[39m starts a new session with the brief when the earlier one is gone[33m 357[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4592903Z      [33m[2m✓[22m[39m question continuation refuses a missing original session without a fresh prompt[33m 308[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4597627Z    [32m✓[39m codex follow-up run [2m(4)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4599361Z      [33m[2m✓[22m[39m continues the earlier session with only the follow-up[33m 308[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4600820Z    [32m✓[39m cursor follow-up run [2m(4)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4602235Z      [33m[2m✓[22m[39m continues the earlier session with only the follow-up[33m 594[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4604002Z      [33m[2m✓[22m[39m starts a new session with the brief when the earlier one is gone[33m 576[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4605344Z    [32m✓[39m resume after a daemon restart [2m(5)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4606842Z      [33m[2m✓[22m[39m claude_code: uncertain question delivery fails closed without another CLI turn[33m 331[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4608698Z      [33m[2m✓[22m[39m codex: uncertain question delivery fails closed without another CLI turn[33m 352[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4610663Z      [33m[2m✓[22m[39m claude_code: the next daemon reopens the same session[33m 347[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4612427Z      [33m[2m✓[22m[39m cursor: the next daemon reopens the same session[33m 602[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.4614030Z      [33m[2m✓[22m[39m ends at once, without the CLI, when the agent handed in before the restart[33m 391[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.8828484Z  [32m✓[39m test/factory-check.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1041[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.8848010Z    [33m[2m✓[22m[39m checks real SHA, blocks dirty/head replacement, and produces actual command/exit evidence across fresh mock sessions[33m 1039[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:11.9741403Z  [32m✓[39m src/outbox.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:12.9650169Z  [32m✓[39m test/rpc.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 298[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:13.8951908Z  [32m✓[39m test/mailbox.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 569[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:13.9899809Z  [32m✓[39m test/claude-subscription.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 2258[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:13.9901818Z    [33m[2m✓[22m[39m ends at access expiry without independent refresh or a paid fallback[33m 1544[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.0091212Z  [32m✓[39m test/subscription-hosted-runner.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1419[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.0102064Z    [33m[2m✓[22m[39m runs codex through the existing adapter in a private Docker runtime and retains the owner session ledger[33m 658[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.0104625Z    [33m[2m✓[22m[39m runs claude_code through the existing adapter in a private Docker runtime and retains the owner session ledger[33m 760[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.4166646Z  [32m✓[39m test/subscription-native-broker.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 89[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.5126332Z  [32m✓[39m test/policy-resume.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.5784378Z  [32m✓[39m test/skills.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 193[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:14.7561050Z  [32m✓[39m test/group-review-worker.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:15.1170924Z  [32m✓[39m test/fs-browse.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:15.3116559Z  [32m✓[39m src/env.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:15.4896552Z  [32m✓[39m test/subscription-quota.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:15.5550730Z  [32m✓[39m test/quota.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 80[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:15.6999497Z  [32m✓[39m src/log.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 15[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:16.3115544Z  [32m✓[39m test/device-file.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1881336Z  [32m✓[39m test/kill.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4298[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1882690Z    [32m✓[39m daemon crash and resume [2m(1)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1883879Z      [33m[2m✓[22m[39m resumes a run after SIGKILL[33m 4297[2mms[22m[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1927319Z 
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1953741Z [2m Test Files [22m [1m[32m29 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (30)[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1955096Z [2m      Tests [22m [1m[32m247 passed[39m[22m[2m | [22m[33m9 skipped[39m[90m (256)[39m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1955937Z [2m   Start at [22m 19:06:56
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1956742Z [2m   Duration [22m 22.47s[2m (tests 78%, import 20%, transform 2%)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1957320Z 
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1958440Z [2m    Isolate [22m [33m30 workers spawned[39m[2m · ~129ms startup each (spawn + environment, per file)[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1961002Z [2m            [22m [2mat least ~1.16s faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m
+policy	Run pnpm --filter @mikka/daemon test	2026-10-25T19:07:19.1961859Z 
+policy	Generate isolated auth secret	﻿2026-10-25T19:07:19.2333611Z ##[group]Run node -e "const s=require('node:crypto').randomBytes(32).toString('hex'); console.log('::add-mask::'+s); require('node:fs').appendFileSync(process.env.GITHUB_ENV,'BETTER_AUTH_SECRET='+s+'\n')"
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2334993Z [36;1mnode -e "const s=require('node:crypto').randomBytes(32).toString('hex'); console.log('::add-mask::'+s); require('node:fs').appendFileSync(process.env.GITHUB_ENV,'BETTER_AUTH_SECRET='+s+'\n')"[0m
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2398310Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2398669Z env:
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2399227Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2399737Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2400248Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2400809Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2401250Z   REQUIRE_POLICY_DB: 1
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2401496Z   CI: true
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2401706Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2401991Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2402255Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2402569Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2402864Z   POLICY_EXTERNAL_SERVER: 1
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2403159Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Generate isolated auth secret	2026-10-25T19:07:19.2403469Z ##[endgroup]
+policy	Run pnpm exec next build --webpack	﻿2026-10-25T19:07:19.2821345Z ##[group]Run pnpm exec next build --webpack
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2821736Z [36;1mpnpm exec next build --webpack[0m
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2884024Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2884380Z env:
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2884706Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2885235Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2885745Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2886280Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2886700Z   REQUIRE_POLICY_DB: 1
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2886912Z   CI: true
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2887120Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2887411Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2887680Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2888002Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2888430Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2888951Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2889782Z   BETTER_AUTH_SECRET: [REDACTED]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:19.2890028Z ##[endgroup]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:22.7349311Z ⚠ Serde warning for classes "Run", "ChannelImpl", "Message", "ThreadImpl", "GatewayEmbeddingModel", "GatewayImageModel", "GatewayLanguageModel": Workflow bundle contains Node.js built-in imports: crypto, fs, path. These will fail at runtime in the workflow sandbox. Add "use step" to methods that depend on Node.js APIs so they are stripped from the workflow bundle.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.2146827Z ✓ Compiled workflows in 2.4s (65 steps, 1 workflow)
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.2415116Z ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.2474482Z ▲ Next.js 16.1.6 (webpack)
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.2475006Z - Experiments (use with caution):
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.2475392Z   ✓ globalNotFound
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.2475767Z 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:07:23.3010343Z   Creating an optimized production build ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:10.6635845Z <w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /home/runner/work/Mikka/Mikka/node_modules/.pnpm/next-intl@4.14.9_@types+react@19.3.0_next@16.1.6_@babel+core@7.29.7_@opentelemetry+api@_05400d200bd0e46dd14566ec384f351c/node_modules/next-intl/dist/esm/production/extractor/format/index.js for build dependencies failed at 'import(t(c).href)'.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:10.6638147Z <w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:20.4279389Z <w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /home/runner/work/Mikka/Mikka/node_modules/.pnpm/next-intl@4.14.9_@types+react@19.3.0_next@16.1.6_@babel+core@7.29.7_@opentelemetry+api@_05400d200bd0e46dd14566ec384f351c/node_modules/next-intl/dist/esm/production/extractor/format/index.js for build dependencies failed at 'import(t(c).href)'.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:20.4282447Z <w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:50.4111305Z <w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of /home/runner/work/Mikka/Mikka/node_modules/.pnpm/next-intl@4.14.9_@types+react@19.3.0_next@16.1.6_@babel+core@7.29.7_@opentelemetry+api@_05400d200bd0e46dd14566ec384f351c/node_modules/next-intl/dist/esm/production/extractor/format/index.js for build dependencies failed at 'import(t(c).href)'.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:50.4113204Z <w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:58.1387424Z ✓ Compiled successfully in 95s
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:58.1401103Z   Running next.config.js provided runAfterProductionCompile ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:58.1474125Z ✓ Completed runAfterProductionCompile in 7ms
+policy	Run pnpm exec next build --webpack	2026-10-25T19:08:58.1499281Z   Running TypeScript ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:28.3289125Z   Collecting page data using 3 workers ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:42.2801276Z   Generating static pages using 3 workers (0/34) ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:42.6088399Z   Generating static pages using 3 workers (8/34) 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:42.6089885Z   Generating static pages using 3 workers (16/34) 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:42.9524174Z   Generating static pages using 3 workers (25/34) 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:42.9525691Z ✓ Generating static pages using 3 workers (34/34) in 672.9ms
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:45.0227712Z   Finalizing page optimization ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:09:45.0228338Z   Collecting build traces ...
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6355716Z 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6387796Z Route (app)
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6388542Z ┌ ○ /_not-found
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6389641Z ├ ƒ /.well-known/oauth-authorization-server
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6390417Z ├ ƒ /.well-known/oauth-protected-resource
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6391178Z ├ ƒ /.well-known/workflow/v1/flow
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6391921Z ├ ƒ /.well-known/workflow/v1/webhook/[token]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6392479Z ├ ƒ /[locale]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6392936Z ├ ƒ /[locale]/[...rest]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6393397Z ├ ƒ /[locale]/acceptance
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6393934Z ├ ƒ /[locale]/dashboard
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6394433Z ├ ƒ /[locale]/devices
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6394940Z ├ ƒ /[locale]/forgot-password
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6407790Z ├ ƒ /[locale]/invite/[token]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6408335Z ├ ƒ /[locale]/oauth/consent
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6409024Z ├ ƒ /[locale]/preview
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6409383Z ├ ƒ /[locale]/preview/settings
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6409875Z ├ ƒ /[locale]/reset-password
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6410392Z ├ ƒ /[locale]/settings
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6410893Z ├ ƒ /[locale]/settings/members
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6411371Z ├ ƒ /[locale]/settings/teams
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6411812Z ├ ƒ /[locale]/sign-in
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6412210Z ├ ƒ /[locale]/sign-up
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6412640Z ├ ƒ /[locale]/verify-email
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6412930Z ├ ƒ /[locale]/workspaces/new
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6413200Z ├ ƒ /api/acceptance
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6413591Z ├ ƒ /api/agent
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6413861Z ├ ƒ /api/agent/images
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6414128Z ├ ƒ /api/agent/sessions
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6414365Z ├ ƒ /api/audit
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6414602Z ├ ƒ /api/audit/export
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6414862Z ├ ƒ /api/auth/[...all]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6415118Z ├ ƒ /api/conversations
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6415691Z ├ ƒ /api/conversations/[id]/artifacts
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6416065Z ├ ƒ /api/conversations/[id]/members
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6416420Z ├ ƒ /api/conversations/[id]/messages
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6416765Z ├ ƒ /api/conversations/[id]/review
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6417109Z ├ ƒ /api/conversations/directory
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6417414Z ├ ƒ /api/coordinator/messages
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6417716Z ├ ƒ /api/credential-requests
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6418051Z ├ ƒ /api/credential-requests/[id]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6418411Z ├ ƒ /api/credential-requests/[id]/cancel
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6419101Z ├ ƒ /api/credential-requests/[id]/events
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6419652Z ├ ƒ /api/credential-requests/[id]/submit
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6420022Z ├ ƒ /api/cron/credential-cleanup
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6420325Z ├ ƒ /api/cron/linear-sync
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6420608Z ├ ƒ /api/cron/subscriptions
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6420885Z ├ ƒ /api/devices/ssh
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6421328Z ├ ƒ /api/factory/questions/[questionId]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6421697Z ├ ƒ /api/factory/tasks
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6421994Z ├ ƒ /api/factory/tasks/[taskId]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6422335Z ├ ƒ /api/factory/tasks/[taskId]/approval
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6422627Z ├ ƒ /api/health
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6423015Z ├ ƒ /api/integrations/composio
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6423600Z ├ ƒ /api/integrations/composio/callback
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6424221Z ├ ƒ /api/integrations/google/callback
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6424772Z ├ ƒ /api/integrations/linear/callback
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6425219Z ├ ƒ /api/mailboxes
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6425647Z ├ ƒ /api/mailboxes/[mailboxId]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6426034Z ├ ƒ /api/mcp
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6426407Z ├ ƒ /api/pending-actions
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6426787Z ├ ƒ /api/policy
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6427473Z ├ ƒ /api/self-improvement
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6427895Z ├ ƒ /api/skills/search
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6428274Z ├ ƒ /api/subscriptions
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6428929Z ├ ƒ /api/subscriptions/callback
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6429440Z ├ ƒ /api/subscriptions/enrollments
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6429994Z ├ ƒ /api/subscriptions/enrollments/bind
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6430549Z ├ ƒ /api/subscriptions/enrollments/handoff
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6431007Z ├ ƒ /api/suggestions
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6431399Z ├ ƒ /api/suggestions/[id]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6431852Z ├ ƒ /api/teams/[teamId]/members
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6432273Z ├ ƒ /api/teams/directory
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6432681Z ├ ƒ /api/test-workspace
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6433081Z ├ ƒ /api/webhooks/composio
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6433493Z ├ ƒ /api/webhooks/github
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6433887Z ├ ƒ /api/webhooks/linear
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6434288Z ├ ƒ /api/webhooks/telegram
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6434742Z ├ ƒ /api/worker/account-actions
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6435153Z ├ ƒ /api/workspace
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6435558Z ├ ƒ /api/workspace/switcher
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6435965Z ├ ○ /apple-icon.png
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6436304Z ├ ○ /icon.svg
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6436726Z ├ ƒ /v1/devices/[deviceId]/commands
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6437259Z ├ ƒ /v1/devices/[deviceId]/commands/ack
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6437806Z ├ ƒ /v1/devices/[deviceId]/fs/requests
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6438400Z ├ ƒ /v1/devices/[deviceId]/fs/requests/[requestId]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6439198Z ├ ƒ /v1/devices/[deviceId]/group-reviews
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6439734Z ├ ƒ /v1/devices/[deviceId]/heartbeat
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6440241Z ├ ƒ /v1/devices/[deviceId]/repos
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6440717Z ├ ƒ /v1/devices/[deviceId]/runs
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6441246Z ├ ƒ /v1/devices/[deviceId]/runs/[runId]/claim
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6441873Z ├ ƒ /v1/devices/[deviceId]/runs/[runId]/subscription
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6442390Z ├ ƒ /v1/devices/register
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6442747Z ├ ƒ /v1/mailbox
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6443112Z ├ ƒ /v1/runs/[runId]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6443535Z ├ ƒ /v1/runs/[runId]/checkpoint
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6443990Z ├ ƒ /v1/runs/[runId]/complete
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6444414Z ├ ƒ /v1/runs/[runId]/events
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6444883Z ├ ƒ /v1/runs/[runId]/group-reply
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6445378Z ├ ƒ /v1/runs/[runId]/skill-receipt
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6446001Z └ ƒ /w/[slug]
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6446175Z 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6446186Z 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6446380Z ƒ Proxy (Middleware)
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6446579Z 
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6446873Z ○  (Static)   prerendered as static content
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6447434Z ƒ  (Dynamic)  server-rendered on demand
+policy	Run pnpm exec next build --webpack	2026-10-25T19:11:07.6447708Z 
+policy	Run git rev-parse HEAD > .next/policy-source-sha	﻿2026-10-25T19:11:07.9196647Z ##[group]Run git rev-parse HEAD > .next/policy-source-sha
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9197111Z [36;1mgit rev-parse HEAD > .next/policy-source-sha[0m
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9314111Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9314488Z env:
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9314815Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9315339Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9315831Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9316360Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9316818Z   REQUIRE_POLICY_DB: 1
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9317036Z   CI: true
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9317249Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9317532Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9317793Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9318109Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9318426Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9318847Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9319525Z   BETTER_AUTH_SECRET: [REDACTED]
+policy	Run git rev-parse HEAD > .next/policy-source-sha	2026-10-25T19:11:07.9319769Z ##[endgroup]
+policy	Compiled Next policy API regression	﻿2026-10-25T19:11:07.9455473Z ##[group]Run set -euo pipefail
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9455815Z [36;1mset -euo pipefail[0m
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9456222Z [36;1mpnpm exec next start --hostname 127.0.0.1 --port 3130 > policy-next.log 2>&1 &[0m
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9456780Z [36;1mnode scripts/policy/http-acceptance.mjs | tee policy-http.log[0m
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9457616Z [36;1mnode -e "const a=require('./policy-http-evidence/acceptance.json'); if(a.results!=='passed'||a.requests.length<60||!a.oauthMcp?.events?.length) process.exit(1)"[0m
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9517675Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9518025Z env:
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9518346Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9519086Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9519592Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9520120Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9520574Z   REQUIRE_POLICY_DB: 1
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9520787Z   CI: true
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9520998Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9521282Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9521541Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9521857Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9522152Z   POLICY_EXTERNAL_SERVER: 1
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9522441Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9522985Z   BETTER_AUTH_SECRET: [REDACTED]
+policy	Compiled Next policy API regression	2026-10-25T19:11:07.9523229Z ##[endgroup]
+policy	Compiled Next policy API regression	2026-10-25T19:11:13.5550091Z {"sha":"721bbf3615f7b9a3672c149112382dac75c72cb8","requests":67,"results":"passed","video":false,"evidence":"policy-http-evidence"}
+policy	Run actions/upload-artifact@v4	﻿2026-10-25T19:11:13.6343722Z ##[group]Run actions/upload-artifact@v4
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6344035Z with:
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6344255Z   name: policy-postgres-evidence
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6344548Z   path: policy-*.log
+policy	Run actions/upload-artifact@v4	policy-http-evidence/
+policy	Run actions/upload-artifact@v4	
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6344853Z   retention-days: 14
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6345086Z   if-no-files-found: warn
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6345324Z   compression-level: 6
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6345539Z   overwrite: false
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6345759Z   include-hidden-files: false
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6345991Z env:
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6346311Z   MIKKA_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6347014Z   DATABASE_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6347502Z   POLICY_APP_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_app_e2e
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6348025Z   POLICY_WORKSPACE_TEST_URL: postgresql://postgres@127.0.0.1:5432/policy_workspace_e2e
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6348460Z   REQUIRE_POLICY_DB: 1
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6348674Z   CI: true
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6349269Z   BETTER_AUTH_URL: http://127.0.0.1:3130
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6349558Z   NEXT_TELEMETRY_DISABLED: 1
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6349817Z   POLICY_HTTP_ORIGIN: http://127.0.0.1:3130
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6350133Z   POLICY_EVIDENCE_DIR: policy-http-evidence
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6350423Z   POLICY_EXTERNAL_SERVER: 1
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6350713Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6351266Z   BETTER_AUTH_SECRET: [REDACTED]
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.6351498Z ##[endgroup]
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.8609110Z (node:10104) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.8610049Z (Use `node --trace-deprecation ...` to show where the warning was created)
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.8707836Z With the provided path, there will be 5 files uploaded
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.8729649Z Artifact name is valid!
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:13.8730668Z Root directory input is valid!
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:14.2532439Z Beginning upload of artifact content to blob storage
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:14.2845335Z (node:10104) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:14.5453511Z Uploaded bytes 7218
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:14.6202311Z Finished uploading artifact content to blob storage!
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:14.6203793Z SHA256 digest of uploaded artifact zip is 1dc4c3776ba1b00c354d5d3f5236658d4fd491057bf1cbb2dc5327bcc9cb7e52
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:14.6205314Z Finalizing artifact upload
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:15.0438234Z Artifact policy-postgres-evidence.zip successfully finalized. Artifact ID 12610976068
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:15.0440098Z Artifact policy-postgres-evidence has been successfully uploaded! Final size is 7218 bytes. Artifact ID is 12610976068
+policy	Run actions/upload-artifact@v4	2026-10-25T19:11:15.0446615Z Artifact download URL: https://github.com/alexj11324/Mikka/actions/runs/40224375177/artifacts/12610976068
+policy	Post Run actions/setup-node@v4	﻿2026-10-25T19:11:15.0630290Z Post job cleanup.
+policy	Post Run actions/setup-node@v4	2026-10-25T19:11:15.1868013Z (node:10116) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+policy	Post Run actions/setup-node@v4	2026-10-25T19:11:15.1869159Z (Use `node --trace-deprecation ...` to show where the warning was created)
+policy	Post Run actions/setup-node@v4	2026-10-25T19:11:15.1872611Z Cache hit occurred on the primary key node-cache-Linux-x64-pnpm-7a3bc9c6f164f6d6b388d6f8d9d1f722552a0289d09779bc66a7f73869aed8a6, not saving cache.
+policy	Post Run pnpm/action-setup@v4	﻿2026-10-25T19:11:15.1975025Z Post job cleanup.
+policy	Post Run pnpm/action-setup@v4	2026-10-25T19:11:15.3486570Z Pruning is unnecessary.
+policy	Post Run actions/checkout@v4	﻿2026-10-25T19:11:15.3659361Z Post job cleanup.
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4566916Z [command]/usr/bin/git version
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4616145Z git version 2.55.0
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4661154Z Temporarily overriding HOME='/home/runner/work/_temp/3df5f6cd-2a63-4c03-b830-f634a78eafe0' before making global git config changes
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4662716Z Adding repository directory to the temporary git global config as a safe directory
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4667210Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Mikka/Mikka
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4706754Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.4743300Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.5032161Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.5056388Z http.https://github.com/.extraheader
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.5078978Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.5131997Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.5397259Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+policy	Post Run actions/checkout@v4	2026-10-25T19:11:15.5438420Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+policy	Stop containers	﻿2026-10-25T19:11:15.5785740Z Print service container logs: 0429ed568a364021998a6cd4f2da826c_postgres17_5bb8c5
+policy	Stop containers	2026-10-25T19:11:15.5790716Z ##[command]/usr/bin/docker logs --details 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Stop containers	2026-10-25T19:11:15.5912192Z  ********************************************************************************
+policy	Stop containers	2026-10-25T19:11:15.5914793Z  The files belonging to this database system will be owned by user "postgres".
+policy	Stop containers	2026-10-25T19:11:15.5916523Z  WARNING: POSTGRES_HOST_AUTH_METHOD has been set to "trust". This will allow
+policy	Stop containers	2026-10-25T19:11:15.5917446Z           anyone with access to the Postgres port to access your database without
+policy	Stop containers	2026-10-25T19:11:15.5918279Z           a password, even if POSTGRES_PASSWORD is set. See PostgreSQL
+policy	Stop containers	2026-10-25T19:11:15.5919015Z           documentation about "trust":
+policy	Stop containers	2026-10-25T19:11:15.5919439Z           https://www.postgresql.org/docs/current/auth-trust.html
+policy	Stop containers	2026-10-25T19:11:15.5919892Z           In Docker's default configuration, this is effectively any other
+policy	Stop containers	2026-10-25T19:11:15.5920310Z           container on the same system.
+policy	Stop containers	2026-10-25T19:11:15.5920571Z  
+policy	Stop containers	2026-10-25T19:11:15.5920866Z           It is not recommended to use POSTGRES_HOST_AUTH_METHOD=trust. Replace
+policy	Stop containers	2026-10-25T19:11:15.5921359Z           it with "-e POSTGRES_PASSWORD=password" instead to set a password in
+policy	Stop containers	2026-10-25T19:11:15.5921738Z           "docker run".
+policy	Stop containers	2026-10-25T19:11:15.5922006Z  ********************************************************************************
+policy	Stop containers	2026-10-25T19:11:15.5922430Z  initdb: warning: enabling "trust" authentication for local connections
+policy	Stop containers	2026-10-25T19:11:15.5923143Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+policy	Stop containers	2026-10-25T19:11:15.5924099Z  2026-10-25 19:05:58.459 UTC [1] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+policy	Stop containers	2026-10-25T19:11:15.5924874Z  2026-10-25 19:05:58.460 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+policy	Stop containers	2026-10-25T19:11:15.5925359Z  2026-10-25 19:05:58.460 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+policy	Stop containers	2026-10-25T19:11:15.5925880Z  2026-10-25 19:05:58.460 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+policy	Stop containers	2026-10-25T19:11:15.5926455Z  2026-10-25 19:05:58.463 UTC [65] LOG:  database system was shut down at 2026-10-25 19:05:58 UTC
+policy	Stop containers	2026-10-25T19:11:15.5927227Z  2026-10-25 19:05:58.467 UTC [1] LOG:  database system is ready to accept connections
+policy	Stop containers	2026-10-25T19:11:15.5928045Z  2026-10-25 19:06:32.628 UTC [131] ERROR:  policy versions are immutable
+policy	Stop containers	2026-10-25T19:11:15.5929178Z  2026-10-25 19:06:32.628 UTC [131] CONTEXT:  PL/pgSQL function organization_policy_immutable() line 2 at RAISE
+policy	Stop containers	2026-10-25T19:11:15.5930409Z  2026-10-25 19:06:32.628 UTC [131] STATEMENT:  UPDATE organization_policy_versions SET actor_id=$2 WHERE workspace_id=$1
+policy	Stop containers	2026-10-25T19:11:15.5931387Z  2026-10-25 19:06:32.637 UTC [133] ERROR:  synthetic audit unavailable
+policy	Stop containers	2026-10-25T19:11:15.5931945Z  2026-10-25 19:06:32.637 UTC [133] CONTEXT:  PL/pgSQL function policy_test_audit_fail() line 1 at RAISE
+policy	Stop containers	2026-10-25T19:11:15.5932640Z  	SQL statement "INSERT INTO security_audit_events(tenant,seq,id,occurred_at,event,canonical,prev_hash,hash)
+policy	Stop containers	2026-10-25T19:11:15.5933366Z  	 VALUES(t,h.seq+1,key,stamp,data,body,h.hash,encode(sha256(convert_to(h.hash||E'\n'||body,'UTF8')),'hex'))"
+policy	Stop containers	2026-10-25T19:11:15.5934203Z  	PL/pgSQL function security_audit_append(text,uuid,jsonb) line 15 at SQL statement
+policy	Stop containers	2026-10-25T19:11:15.5934732Z  2026-10-25 19:06:32.637 UTC [133] STATEMENT:  SELECT security_audit_append($1,$2,$3)
+policy	Stop containers	2026-10-25T19:11:15.5935191Z  2026-10-25 19:10:58.563 UTC [63] LOG:  checkpoint starting: time
+policy	Stop containers	2026-10-25T19:11:15.5935601Z  2026-10-25 19:11:13.522 UTC [614] ERROR:  synthetic unavailable writer
+policy	Stop containers	2026-10-25T19:11:15.5936094Z  2026-10-25 19:11:13.522 UTC [614] CONTEXT:  PL/pgSQL function policy_http_fail() line 1 at RAISE
+policy	Stop containers	2026-10-25T19:11:15.5936745Z  	SQL statement "INSERT INTO security_audit_events(tenant,seq,id,occurred_at,event,canonical,prev_hash,hash)
+policy	Stop containers	2026-10-25T19:11:15.5937791Z  	 VALUES(t,h.seq+1,key,stamp,data,body,h.hash,encode(sha256(convert_to(h.hash||E'\n'||body,'UTF8')),'hex'))"
+policy	Stop containers	2026-10-25T19:11:15.5938315Z  This user must also own the server process.
+policy	Stop containers	2026-10-25T19:11:15.5938603Z  
+policy	Stop containers	2026-10-25T19:11:15.5939512Z  The database cluster will be initialized with locale "en_US.utf8".
+policy	Stop containers	2026-10-25T19:11:15.5940185Z  The default database encoding has accordingly been set to "UTF8".
+policy	Stop containers	2026-10-25T19:11:15.5940628Z  The default text search configuration will be set to "english".
+policy	Stop containers	2026-10-25T19:11:15.5940979Z  
+policy	Stop containers	2026-10-25T19:11:15.5941184Z  Data page checksums are disabled.
+policy	Stop containers	2026-10-25T19:11:15.5941438Z  
+policy	Stop containers	2026-10-25T19:11:15.5941736Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+policy	Stop containers	2026-10-25T19:11:15.5942147Z  creating subdirectories ... ok
+policy	Stop containers	2026-10-25T19:11:15.5942470Z  selecting dynamic shared memory implementation ... posix
+policy	Stop containers	2026-10-25T19:11:15.5942855Z  selecting default "max_connections" ... 100
+policy	Stop containers	2026-10-25T19:11:15.5943177Z  selecting default "shared_buffers" ... 128MB
+policy	Stop containers	2026-10-25T19:11:15.5943480Z  selecting default time zone ... Etc/UTC
+policy	Stop containers	2026-10-25T19:11:15.5943769Z  creating configuration files ... ok
+policy	Stop containers	2026-10-25T19:11:15.5944050Z  running bootstrap script ... ok
+policy	Stop containers	2026-10-25T19:11:15.5944354Z  performing post-bootstrap initialization ... ok
+policy	Stop containers	2026-10-25T19:11:15.5944683Z  syncing data to disk ... ok
+policy	Stop containers	2026-10-25T19:11:15.5944917Z  
+policy	Stop containers	2026-10-25T19:11:15.5945093Z  
+policy	Stop containers	2026-10-25T19:11:15.5945330Z  Success. You can now start the database server using:
+policy	Stop containers	2026-10-25T19:11:15.5945635Z  
+policy	Stop containers	2026-10-25T19:11:15.5945870Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+policy	Stop containers	2026-10-25T19:11:15.5946177Z  
+policy	Stop containers	2026-10-25T19:11:15.5946826Z  waiting for server to start....2026-10-25 19:05:58.154 UTC [49] LOG:  starting PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+policy	Stop containers	2026-10-25T19:11:15.5947727Z  2026-10-25 19:05:58.155 UTC [49] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+policy	Stop containers	2026-10-25T19:11:15.5948312Z  2026-10-25 19:05:58.157 UTC [52] LOG:  database system was shut down at 2026-10-25 19:05:58 UTC
+policy	Stop containers	2026-10-25T19:11:15.5949065Z  2026-10-25 19:05:58.160 UTC [49] LOG:  database system is ready to accept connections
+policy	Stop containers	2026-10-25T19:11:15.5949464Z   done
+policy	Stop containers	2026-10-25T19:11:15.5949655Z  server started
+policy	Stop containers	2026-10-25T19:11:15.5949861Z  CREATE DATABASE
+policy	Stop containers	2026-10-25T19:11:15.5950055Z  
+policy	Stop containers	2026-10-25T19:11:15.5950232Z  
+policy	Stop containers	2026-10-25T19:11:15.5950550Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+policy	Stop containers	2026-10-25T19:11:15.5950961Z  
+policy	Stop containers	2026-10-25T19:11:15.5951323Z  waiting for server to shut down...2026-10-25 19:05:58.338 UTC [49] LOG:  received fast shutdown request
+policy	Stop containers	2026-10-25T19:11:15.5951862Z  .2026-10-25 19:05:58.339 UTC [49] LOG:  aborting any active transactions
+policy	Stop containers	2026-10-25T19:11:15.5952452Z  2026-10-25 19:05:58.340 UTC [49] LOG:  background worker "logical replication launcher" (PID 55) exited with exit code 1
+policy	Stop containers	2026-10-25T19:11:15.5953010Z  2026-10-25 19:05:58.341 UTC [50] LOG:  shutting down
+policy	Stop containers	2026-10-25T19:11:15.5953411Z  2026-10-25 19:05:58.341 UTC [50] LOG:  checkpoint starting: shutdown immediate
+policy	Stop containers	2026-10-25T19:11:15.5954518Z  2026-10-25 19:05:58.356 UTC [50] LOG:  checkpoint complete: wrote 925 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.013 s, sync=0.002 s, total=0.016 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4256 kB, estimate=4256 kB; lsn=0/1917920, redo lsn=0/1917920
+policy	Stop containers	2026-10-25T19:11:15.5955747Z  2026-10-25 19:05:58.363 UTC [49] LOG:  database system is shut down
+policy	Stop containers	2026-10-25T19:11:15.5956087Z   done
+policy	Stop containers	2026-10-25T19:11:15.5956269Z  server stopped
+policy	Stop containers	2026-10-25T19:11:15.5956466Z  
+policy	Stop containers	2026-10-25T19:11:15.5956701Z  PostgreSQL init process complete; ready for start up.
+policy	Stop containers	2026-10-25T19:11:15.5957010Z  
+policy	Stop containers	2026-10-25T19:11:15.5957344Z  	PL/pgSQL function security_audit_append(text,uuid,jsonb) line 15 at SQL statement
+policy	Stop containers	2026-10-25T19:11:15.5957876Z  2026-10-25 19:11:13.522 UTC [614] STATEMENT:  SELECT security_audit_append($1,$2,$3)
+policy	Stop containers	2026-10-25T19:11:15.5958582Z  2026-10-25 19:11:13.536 UTC [614] ERROR:  relation "organization_policy_heads" does not exist at character 33
+policy	Stop containers	2026-10-25T19:11:15.5959948Z  2026-10-25 19:11:13.536 UTC [614] STATEMENT:  SELECT v.signed, v.version FROM organization_policy_heads h LEFT JOIN organization_policy_versions v ON v.workspace_id=h.workspace_id AND v.version=COALESCE($2,h.version) WHERE h.workspace_id=$1
+policy	Stop containers	2026-10-25T19:11:15.5961067Z  2026-10-25 19:11:13.543 UTC [614] ERROR:  relation "organization_policy_heads" does not exist at character 33
+policy	Stop containers	2026-10-25T19:11:15.5962036Z  2026-10-25 19:11:13.543 UTC [614] STATEMENT:  SELECT h.version, v.signed FROM organization_policy_heads h LEFT JOIN organization_policy_versions v USING(workspace_id,version) WHERE h.workspace_id=$1
+policy	Stop containers	2026-10-25T19:11:15.5967692Z Stop and remove container: 0429ed568a364021998a6cd4f2da826c_postgres17_5bb8c5
+policy	Stop containers	2026-10-25T19:11:15.5972879Z ##[command]/usr/bin/docker rm --force 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Stop containers	2026-10-25T19:11:15.7550022Z 9dbcb428d8df625e3b822b96ac6e1361277c2e4ec45d4890e9bd8325b6c9af8b
+policy	Stop containers	2026-10-25T19:11:15.7576445Z Remove container network: github_network_d405b16f9f76435589ae82039b70f74f
+policy	Stop containers	2026-10-25T19:11:15.7581534Z ##[command]/usr/bin/docker network rm github_network_d405b16f9f76435589ae82039b70f74f
+policy	Stop containers	2026-10-25T19:11:15.8675801Z github_network_d405b16f9f76435589ae82039b70f74f
+policy	Complete job	﻿2026-10-25T19:11:15.8746581Z Cleaning up orphan processes
+policy	Complete job	2026-10-25T19:11:15.9201052Z Terminate orphan process: pid (9990) (MainThread)
+policy	Complete job	2026-10-25T19:11:15.9228991Z Terminate orphan process: pid (10016) (next-server (v16.1.6))
+policy	Complete job	2026-10-25T19:11:15.9303911Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

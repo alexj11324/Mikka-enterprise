@@ -1,0 +1,1014 @@
+{
+  "sha": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "results": "passed",
+  "utc": "2026-10-25T19:30:25.122Z",
+  "environment": "dedicated cloud Linux; compiled Next; separate loopback PG17 databases; synthetic sessions; no external provider keys",
+  "requests": [
+    {
+      "requestId": "b8e04125-04b9-49f4-abdf-6d57e07cf781",
+      "method": "POST",
+      "path": "/api/auth/sign-up/email",
+      "status": 200,
+      "utc": "2026-10-25T19:29:17.928Z"
+    },
+    {
+      "requestId": "8359cdd8-ab07-4466-a82d-8dc1eea7b031",
+      "method": "POST",
+      "path": "/api/auth/sign-up/email",
+      "status": 200,
+      "utc": "2026-10-25T19:29:18.202Z"
+    },
+    {
+      "utc": "2026-10-25T19:29:35.023Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:search_notion_pages",
+      "expected": "composioNotConfigured"
+    },
+    {
+      "utc": "2026-10-25T19:29:35.175Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:read_notion_page_blocks",
+      "expected": "composioNotConfigured"
+    },
+    {
+      "utc": "2026-10-25T19:29:35.435Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:search_slack_messages",
+      "expected": "composioNotConfigured"
+    },
+    {
+      "utc": "2026-10-25T19:29:38.286Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:read_slack_thread",
+      "expected": "composioNotConfigured"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.042Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:prepare_credential_request",
+      "expected": "credential_broker_disabled"
+    },
+    {
+      "requestId": "75be387f-f7c8-4686-9fa1-8236494f3d5c",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=2bf3be4b-10ab-4a02-afa8-7c8a71191846",
+      "status": 201,
+      "utc": "2026-10-25T19:29:41.408Z"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.463Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "worker credential first enrollment after auth",
+      "expected": "MCP run authorization is no longer valid"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.467Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth first enrollment after auth",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.534Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:search_notion_pages",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.619Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:read_notion_page_blocks",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.685Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:search_slack_messages",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.734Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:read_slack_thread",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.773Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:search_notion_pages",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "requestId": "70b0100f-36b0-4e89-9a4d-87ee20b22b69",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=2bf3be4b-10ab-4a02-afa8-7c8a71191846",
+      "status": 201,
+      "utc": "2026-10-25T19:29:41.848Z"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.869Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth policy revoke after auth",
+      "expected": "policyRevoked"
+    },
+    {
+      "requestId": "39acf7d2-e296-4043-83ae-b617dd47f443",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=2bf3be4b-10ab-4a02-afa8-7c8a71191846",
+      "status": 201,
+      "utc": "2026-10-25T19:29:41.947Z"
+    },
+    {
+      "utc": "2026-10-25T19:29:41.979Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth policy new version after auth",
+      "expected": "toolEnforcementUnavailable"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.047Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth member suspend after auth",
+      "expected": "policyAccessDenied"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.109Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth membership removed after auth",
+      "expected": "policyAccessDenied"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.168Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth token expires after auth",
+      "expected": "mcpAuthorizationRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.226Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth session expires after auth",
+      "expected": "mcpAuthorizationRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.273Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth token revoke after auth",
+      "expected": "mcpAuthorizationRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.318Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth client disable after auth",
+      "expected": "mcpAuthorizationRevoked"
+    },
+    {
+      "requestId": "fcc6587b-8602-4e90-b0a8-da4c1f2a5a33",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=2bf3be4b-10ab-4a02-afa8-7c8a71191846",
+      "status": 201,
+      "utc": "2026-10-25T19:29:42.469Z"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.556Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth concurrent revoke 1",
+      "expected": "policyRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.560Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth concurrent revoke 2",
+      "expected": "policyRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.569Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth concurrent revoke 4",
+      "expected": "policyRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.577Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth concurrent revoke 3",
+      "expected": "policyRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.581Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth concurrent revoke 5",
+      "expected": "policyRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.585Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth concurrent revoke 6",
+      "expected": "policyRevoked"
+    },
+    {
+      "utc": "2026-10-25T19:29:42.621Z",
+      "method": "POST",
+      "path": "/api/mcp",
+      "status": 200,
+      "probe": "oauth:list_issues",
+      "expected": null
+    },
+    {
+      "requestId": "a1730d69-0617-41cd-b703-535970d6ed47",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=2bf3be4b-10ab-4a02-afa8-7c8a71191846",
+      "status": 201,
+      "utc": "2026-10-25T19:29:42.707Z"
+    },
+    {
+      "requestId": "995933a0-7338-4dd5-96fc-e02a7b5d34b9",
+      "method": "GET",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 401,
+      "utc": "2026-10-25T19:29:42.732Z",
+      "error": "policyBrowserRequired"
+    },
+    {
+      "requestId": "98e27d3e-8808-4b2b-bf3e-4c2a61d318be",
+      "method": "GET",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 200,
+      "utc": "2026-10-25T19:29:42.763Z"
+    },
+    {
+      "requestId": "a006dd01-5bed-4e6b-8418-8c20741a4cf4",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 403,
+      "utc": "2026-10-25T19:29:42.792Z",
+      "error": "policyAccessDenied"
+    },
+    {
+      "requestId": "296c7508-1911-4d1f-af52-84222bb12056",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 403,
+      "utc": "2026-10-25T19:29:42.819Z",
+      "error": "originRejected"
+    },
+    {
+      "requestId": "890698cf-a5ed-41d0-acb1-5e424f53c75f",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 422,
+      "utc": "2026-10-25T19:29:42.851Z",
+      "error": "policyInvalid"
+    },
+    {
+      "requestId": "a4c241a6-4b52-4077-9f6d-42d7c0279efd",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 201,
+      "utc": "2026-10-25T19:29:42.914Z"
+    },
+    {
+      "requestId": "47b34ddb-c6df-4cda-b4d2-310a0b6c23c2",
+      "method": "POST",
+      "path": "/api/agent",
+      "status": 503,
+      "utc": "2026-10-25T19:29:52.568Z",
+      "error": "policyBudgetUnavailable"
+    },
+    {
+      "requestId": "fadfed08-dd9f-4ec5-b091-3eb64f19b550",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 201,
+      "utc": "2026-10-25T19:29:52.729Z"
+    },
+    {
+      "requestId": "df793b7a-ae9e-463e-a349-c7e3e17774e0",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.735Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "e7408e45-7c4f-461b-94bc-24eb40bf3d1c",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.740Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "87a94065-292f-4da5-a573-47ed936db972",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.749Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "3635740a-e0c1-4888-a841-2c926aa09c3b",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.752Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "ec3b5771-35bc-423a-bdd1-69d9bc73cdf4",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.755Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "421adc1b-2c51-445f-b497-b9ca6d5fd111",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.761Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "89f47e28-d5b9-406d-84d1-8ebfd47984aa",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 409,
+      "utc": "2026-10-25T19:29:52.764Z",
+      "error": "policyVersionConflict"
+    },
+    {
+      "requestId": "33613baa-8489-496a-b46f-3b4fce066054",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "status": 201,
+      "utc": "2026-10-25T19:29:52.799Z"
+    },
+    {
+      "requestId": "609624e8-b399-490a-98d7-e722b75cfe64",
+      "method": "POST",
+      "path": "/api/agent",
+      "status": 403,
+      "utc": "2026-10-25T19:29:52.864Z",
+      "error": "modelRouteDenied"
+    },
+    {
+      "requestId": "c25720d7-61eb-46c9-8bab-d341ad621bb5",
+      "method": "GET",
+      "path": "/api/policy?workspaceId=0afe73a0-0cb0-4fb6-b73f-52d5066d5db8",
+      "status": 200,
+      "utc": "2026-10-25T19:29:52.981Z"
+    },
+    {
+      "requestId": "8d192c0c-68d9-4b3b-8792-2858cbb3f6e8",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/runs/66eb49d4-f063-4231-b6db-2fda34dda204/claim",
+      "status": 403,
+      "utc": "2026-10-25T19:29:58.669Z",
+      "error": "policyScopeMismatch",
+      "probe": "ordinary continuation moved A to unmanaged B cannot bypass captured A policy",
+      "expected": "policyScopeMismatch"
+    },
+    {
+      "requestId": "ad44de75-178f-425d-a762-88b189916840",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/runs/b0518dbd-d578-4074-8e9a-e9c3cd690b75/claim",
+      "status": 403,
+      "utc": "2026-10-25T19:29:58.816Z",
+      "error": "policyScopeUnverified"
+    },
+    {
+      "requestId": "7f2da71d-1b65-4b27-a851-b760bada502e",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/runs/357a95c9-625a-43cb-8688-862b5aa48ba7/claim",
+      "status": 403,
+      "utc": "2026-10-25T19:29:58.864Z",
+      "error": "policyScopeUnverified"
+    },
+    {
+      "requestId": "5b5c9778-3314-4757-829b-56da3390e72c",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/runs/82d9edf7-b39a-4361-9b56-eedcdf4d9b97/claim",
+      "status": 403,
+      "utc": "2026-10-25T19:29:58.938Z",
+      "error": "policyScopeUnverified"
+    },
+    {
+      "requestId": "37c41f9d-72d8-4ed8-b3d6-40b04d7386f6",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/runs/3a9dfc41-1565-480e-b3ec-4000226bf6d4/claim",
+      "status": 409,
+      "utc": "2026-10-25T19:29:59.022Z",
+      "error": "workerEnforcementUnavailable"
+    },
+    {
+      "requestId": "7861886d-3379-4df9-8bc2-c618fd990cbb",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/group-reviews",
+      "status": 409,
+      "utc": "2026-10-25T19:30:02.716Z",
+      "error": "toolEnforcementUnavailable"
+    },
+    {
+      "requestId": "5b820dda-9b74-4450-a9be-32a9df1f0761",
+      "method": "POST",
+      "path": "/v1/mailbox",
+      "status": 401,
+      "utc": "2026-10-25T19:30:04.624Z",
+      "error": "Unauthorized"
+    },
+    {
+      "requestId": "ed13b5e1-ebb2-41c3-a0f3-60686ee89c6e",
+      "method": "GET",
+      "path": "/v1/runs/3a9dfc41-1565-480e-b3ec-4000226bf6d4/skill-receipt?receiptId=d92a4a31-fda8-443a-9169-93010906cddb",
+      "status": 409,
+      "utc": "2026-10-25T19:30:09.191Z",
+      "error": "workerEnforcementUnavailable"
+    },
+    {
+      "requestId": "65c49d37-7002-439f-af70-0461417716de",
+      "method": "POST",
+      "path": "/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/heartbeat",
+      "status": 200,
+      "utc": "2026-10-25T19:30:15.620Z"
+    },
+    {
+      "requestId": "ba166cda-5e9d-4018-818f-fd036bca707c",
+      "method": "POST",
+      "path": "/mikka/v1/devices/register",
+      "status": 200,
+      "utc": "2026-10-25T19:30:18.241Z",
+      "probe": "daemon-restart-1"
+    },
+    {
+      "requestId": "9c814abc-d1fd-4fd8-b25c-bdde8892a36d",
+      "method": "POST",
+      "path": "/mikka/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/heartbeat",
+      "status": 200,
+      "utc": "2026-10-25T19:30:18.840Z",
+      "probe": "daemon-restart-1"
+    },
+    {
+      "requestId": "e49774f7-89f5-463d-a8c5-d2249d3f2b4d",
+      "method": "POST",
+      "path": "/mikka/v1/devices/register",
+      "status": 200,
+      "utc": "2026-10-25T19:30:19.140Z",
+      "probe": "daemon-restart-2"
+    },
+    {
+      "requestId": "ea96d15b-c011-4b63-909d-24920de483d7",
+      "method": "POST",
+      "path": "/mikka/v1/devices/50c1db07-32e5-4642-94f6-9d61541d691d/heartbeat",
+      "status": 200,
+      "utc": "2026-10-25T19:30:19.373Z",
+      "probe": "daemon-restart-2"
+    },
+    {
+      "requestId": "f1a712a8-7ee7-4415-9a84-5631fb0668a3",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 201,
+      "utc": "2026-10-25T19:30:19.471Z"
+    },
+    {
+      "requestId": "68365bb6-d1a0-4d1f-8926-7ee9ce8acbc4",
+      "method": "GET",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 200,
+      "utc": "2026-10-25T19:30:19.513Z"
+    },
+    {
+      "requestId": "dbefb91e-1ce4-4147-9759-776c26166df6",
+      "method": "POST",
+      "path": "/api/agent",
+      "status": 403,
+      "utc": "2026-10-25T19:30:19.756Z",
+      "error": "policyRevoked"
+    },
+    {
+      "requestId": "0e796866-ff67-41d3-af8a-0a9e2f59aef3",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 201,
+      "utc": "2026-10-25T19:30:19.785Z"
+    },
+    {
+      "requestId": "ab5f1102-0e21-43e0-9c09-d17a0fe051d3",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 503,
+      "utc": "2026-10-25T19:30:19.832Z",
+      "error": "policyUnavailable"
+    },
+    {
+      "requestId": "0bcaf741-9be5-4310-a7f0-8b49efc33d49",
+      "method": "GET",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 200,
+      "utc": "2026-10-25T19:30:19.867Z"
+    },
+    {
+      "requestId": "bbed27d9-239e-493d-b1bd-c27670d5aab9",
+      "method": "GET",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 503,
+      "utc": "2026-10-25T19:30:19.913Z",
+      "error": "policyUnavailable"
+    },
+    {
+      "requestId": "11697d8b-e65c-4dc6-a898-d73ebf53205c",
+      "method": "POST",
+      "path": "/api/agent",
+      "status": 503,
+      "utc": "2026-10-25T19:30:19.947Z"
+    },
+    {
+      "requestId": "cb3f6935-7226-4ad2-8af9-f9e75c7d61e5",
+      "method": "POST",
+      "path": "/api/policy?workspaceId=9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "status": 403,
+      "utc": "2026-10-25T19:30:19.982Z",
+      "error": "policyAccessDenied"
+    }
+  ],
+  "oauthMcp": {
+    "workspaceId": "2bf3be4b-10ab-4a02-afa8-7c8a71191846",
+    "versions": 5,
+    "events": [
+      {
+        "reason": "policyRevoked",
+        "count": 7
+      },
+      {
+        "reason": "toolEnforcementUnavailable",
+        "count": 7
+      }
+    ],
+    "workerCredentialGate": "unmanaged configuration result preserved; policy publication after HTTP auth prevents execution",
+    "providerConfiguration": "absent; unmanaged returned composioNotConfigured; managed returned policy denial before client construction"
+  },
+  "continuation": {
+    "auditRepairSha": "1b39b709ce361b9643524aea983860e6de818ff6",
+    "captured": [
+      {
+        "resource": "66eb49d4-f063-4231-b6db-2fda34dda204",
+        "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18"
+      },
+      {
+        "resource": "6855fce1-ba96-440d-a692-ebdfc0ebb351",
+        "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18"
+      }
+    ],
+    "childStatus": "queued",
+    "issuedRunTokens": 0,
+    "unverifiedHistory": [
+      "ordinary continuation: denied",
+      "questionContinuation without continuesRunId: denied",
+      "generic retryOf reaching locked claim hook: denied"
+    ],
+    "policyResult": "policyScopeMismatch",
+    "isolation": "test overlay only; not final combined source/production acceptance"
+  },
+  "versions": [
+    {
+      "workspace_id": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "version": 1,
+      "actor_id": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+      "rollback_of": null,
+      "published_at": "2026-10-25T19:29:52.786Z"
+    },
+    {
+      "workspace_id": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "version": 1,
+      "actor_id": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+      "rollback_of": null,
+      "published_at": "2026-10-25T19:29:42.877Z"
+    },
+    {
+      "workspace_id": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "version": 2,
+      "actor_id": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+      "rollback_of": null,
+      "published_at": "2026-10-25T19:29:52.681Z"
+    },
+    {
+      "workspace_id": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "version": 3,
+      "actor_id": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+      "rollback_of": null,
+      "published_at": "2026-10-25T19:30:19.460Z"
+    },
+    {
+      "workspace_id": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "version": 4,
+      "actor_id": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+      "rollback_of": 1,
+      "published_at": "2026-10-25T19:30:19.777Z"
+    }
+  ],
+  "events": [
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "2",
+      "event": {
+        "action": "policy.published",
+        "reason": "published",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "success",
+        "actorType": "human",
+        "requestId": "a5078a91-62cd-4fe5-af54-be6d58a722d2",
+        "resourceId": "04ab706c-fb14-46ca-bf53-1da84fd53376:1"
+      },
+      "hash": "a8c45ba5814612665cbc9cc32fb7011dd5cb57749074f686f4831073635d3c9f"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "3",
+      "event": {
+        "action": "policy.model",
+        "reason": "modelRouteDenied",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "57bf58ba-4614-4d40-964a-7d5940da0741",
+        "resourceId": "d5201dc5d6198b29fe72f7432edda9afd88b9879bebb824ee06d3dc3d8c78c05"
+      },
+      "hash": "ff76755d0975ee1af2d7e27c34e84c422d3e37962a84224a71d585b823e8fffa"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "4",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "3efeae7a-cb7e-4674-88b1-547fe7dbf8ce",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "a0f46c1454d091b0af491a21eb3e95898e2c46c9d88afdf9840998c144dcc997"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "5",
+      "event": {
+        "action": "policy.tool",
+        "reason": "toolEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "e4a2a3ca-ba7c-4fb2-888b-c58a97dd0a24",
+        "resourceId": "unscoped-tool"
+      },
+      "hash": "ceaff347cf8463a9256012b15bf044328e27b2a6f03ad64ba233152b83836fc1"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "6",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "5d5a29d9-9d44-4d5e-9cab-06c22ef5cbb2",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "c45f79af90f227d6600cfff05a549a498dc9b78caae7ddc4e2a8f8f43ee0a457"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "7",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "69e09494-6672-487e-94dd-605c6aa1560d",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "35ca9530dfdfca82e47b0e463c7d911df9d27c287b51a0e36903a9abd059a827"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "8",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "580c9c84-c668-421f-9966-472e1f3ee859",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "b5e664dc9f66b55b05e0202af5723ca984fa0fe0c724c730f0957e559722f677"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "9",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "289678d9-ffad-4adb-a715-1591df0a53da",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "3d19eb58e2a25d3dd5fc72baf1c9034652241fb4570e1d32115aef717163da2f"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "10",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "71af8025-8f49-42d3-bfbb-334366331828",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "43995e52578463b67cbc01d1cc6eb26b439434a88d4fef10ec36007096bb7b49"
+    },
+    {
+      "tenant": "04ab706c-fb14-46ca-bf53-1da84fd53376",
+      "seq": "11",
+      "event": {
+        "action": "policy.model",
+        "reason": "policyRevoked",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "d9676de3-b317-4ec8-9839-997cb8407fc0",
+        "resourceId": "d5201dc5d6198b29fe72f7432edda9afd88b9879bebb824ee06d3dc3d8c78c05"
+      },
+      "hash": "015321253167298b6d839b299f5fb247b81685e1a9538ca1d6a865720c2432bd"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "3",
+      "event": {
+        "action": "policy.published",
+        "reason": "published",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "success",
+        "actorType": "human",
+        "requestId": "c97a1890-72d4-4996-acee-5fae3033a854",
+        "resourceId": "9411ff9d-72a8-40a8-b4af-68839f433e18:1"
+      },
+      "hash": "7b91dcf02437cf93431e7b99ddd08b833d9855fd8f37d939285d3816fec1e7d2"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "4",
+      "event": {
+        "action": "policy.model",
+        "reason": "policyBudgetUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "9d8ff283-f4b4-4c70-887c-93aeb33d8d76",
+        "resourceId": "f64454114cb9075b8346ff226712abdb0b560b5d1a991dfe338ed46616e0802f"
+      },
+      "hash": "a9ef84c4e61f38c22ea6d189df27ac4d87b149263465a188b198fbde9a1a7a91"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "5",
+      "event": {
+        "action": "policy.published",
+        "reason": "published",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "success",
+        "actorType": "human",
+        "requestId": "8e8a497f-f949-4d9f-afc8-b2c12662e054",
+        "resourceId": "9411ff9d-72a8-40a8-b4af-68839f433e18:2"
+      },
+      "hash": "85d66d069a43a733e358a6576bd4cd294effc9001edb9876b60b9615892b3a40"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "6",
+      "event": {
+        "action": "policy.model",
+        "reason": "modelRouteDenied",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "3354e7e9-2ca0-4556-b724-d9ea1c66aa35",
+        "resourceId": "f64454114cb9075b8346ff226712abdb0b560b5d1a991dfe338ed46616e0802f"
+      },
+      "hash": "48fa6e19c7c2a23a475976ccc6f321f25510be9b7bf034b37e942264d48da431"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "7",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "e6efc6c7-d895-41cf-8566-0b0a8b537e83",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "fd863d24930fa5ab27d89dc191f80b1d9401c52a89661adf35696ac3595b0f50"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "8",
+      "event": {
+        "action": "policy.tool",
+        "reason": "toolEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "7fa4ca3d-e7fb-41f9-8763-2c32b36ff0d2",
+        "resourceId": "unscoped-tool"
+      },
+      "hash": "394ee31a6fbaba1e4c71b2bc35846e37eced3e1ccd77fc0c8512325298deb550"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "9",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "5c769674-b08e-41fe-abbd-631122e39498",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "f2359a079eeb4ed03f448e4859572aaaf977b91414b9e7b1158770603da22271"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "10",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "2f0debd3-1a98-4172-8aa2-5c221834f1a5",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "011d02845f1cc06f09624ee6930b5159cb6aa9b0f0b082c22d374abce447d7f9"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "11",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "38466781-e81a-4cc4-bbd7-1dbee97cd32a",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "a4f37944a3b5b0115e54c34303b59a5a181d150032fab16dae11280c78c8d5df"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "12",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "c06d08fc-e50c-41aa-9785-e7f1a36c3672",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "c96b80d40f08f1b6cba691c8709b0f0b68e84336e75d390981642f2a32ead247"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "13",
+      "event": {
+        "runId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4",
+        "action": "policy.worker",
+        "reason": "workerEnforcementUnavailable",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "worker",
+        "requestId": "4ec9b50f-cf9a-436e-b772-893418f04384",
+        "resourceId": "3a9dfc41-1565-480e-b3ec-4000226bf6d4"
+      },
+      "hash": "3d0cdd868d90a074f6683aa277fdd0054c0bc659ae0c8c19fd4f456315a2aa06"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "14",
+      "event": {
+        "action": "policy.published",
+        "reason": "published",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "success",
+        "actorType": "human",
+        "requestId": "2f20aeb4-19c6-4bdd-bfba-d0c696c0ecb1",
+        "resourceId": "9411ff9d-72a8-40a8-b4af-68839f433e18:3"
+      },
+      "hash": "295b2bc5f2cd656957d47e374d87aaeff469866e6c670d7ca5d684eec2f6c5bf"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "15",
+      "event": {
+        "action": "policy.model",
+        "reason": "policyRevoked",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "denied",
+        "actorType": "system",
+        "requestId": "e6949c19-202c-4990-b4b5-fed2d116a508",
+        "resourceId": "8e4b2a106fcbf8c4f3b459ab3b010957a756c474f2b809e0a159e869791e4925"
+      },
+      "hash": "dd86f09a6b61908f666b9e1aeb1c4389223e4d3b1f1425c44ad81d15aa3e4fde"
+    },
+    {
+      "tenant": "9411ff9d-72a8-40a8-b4af-68839f433e18",
+      "seq": "16",
+      "event": {
+        "action": "policy.published",
+        "reason": "rollback",
+        "actorId": "G2oGBhWVzEMyqOo8n6n6xz2uLlpddc6j",
+        "outcome": "success",
+        "actorType": "human",
+        "requestId": "a713e2ef-28ba-485c-8351-25c654430b84",
+        "resourceId": "9411ff9d-72a8-40a8-b4af-68839f433e18:4"
+      },
+      "hash": "591cc4d8fc5a5809a9a23e35259338ef38ecd14c1e0a6717df30e70a3305749c"
+    }
+  ],
+  "limitations": [
+    "not deployed Preview or production acceptance",
+    "no real OAuth/provider/CLI allowed path",
+    "#215 reservation and verified managed worker transport remain unavailable"
+  ]
+}

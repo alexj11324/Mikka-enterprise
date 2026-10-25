@@ -1,0 +1,7 @@
+{
+  "utc": "2026-10-25T19:46:57.847Z",
+  "sha": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "exitCode": 0,
+  "scope": "local isolated cloud Linux production build; not public CI/deployment",
+  "providerKeysForwarded": false
+}

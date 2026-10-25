@@ -1,0 +1,65 @@
+
+Running 3 tests using 1 worker
+
+(node:37333) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 ../mikka-policy-230/tests/e2e/factory-execution-claim.spec.ts:11:1 › Factory execution claims reject stopped tasks and unadopted retry children before token issuance (15.3s)
+(node:37427) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 ../mikka-policy-230/tests/e2e/self-improvement-api.spec.ts:17:1 › Skill baseline selection, actual claim receipt and feedback provenance use real authenticated routes (31.9s)
+(node:37613) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 ../mikka-policy-230/tests/e2e/worker-authorization.spec.ts:8:1 › worker MCP rechecks current issue authority after queueing and revocation (9.1s)
+
+
+  1) ../mikka-policy-230/tests/e2e/factory-execution-claim.spec.ts:11:1 › Factory execution claims reject stopped tasks and unadopted retry children before token issuance 
+
+    TimeoutError: apiRequestContext.post: Timeout 15000ms exceeded.
+    Call log:
+      - → POST http://127.0.0.1:3131/mikka/v1/devices/8b04edfa-e39e-460b-99d9-cbb3d410a444/runs/361f78ed-6f7f-4a9f-bcd0-29ec4ee8107d/claim
+        - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36
+        - accept: */*
+        - accept-encoding: gzip,deflate,br
+        - authorization: Bearer [REDACTED_SYNTHETIC]
+
+
+      186 |           tx.release();
+      187 |         }
+    > 188 |       } else response = await client.post(path);
+          |                                      ^
+      189 |       expect(response.status()).toBe(mode === "allowed" ? 200 : 409);
+      190 |       const tokens = (
+      191 |         await pool.query(
+        at /workspace/mikka-policy-230/tests/e2e/factory-execution-claim.spec.ts:188:38
+
+    Error Context: ../evidence-policy-230-231-boundary/a3-e2e/factory-execution-claim-Fa-0d972-ldren-before-token-issuance/error-context.md
+
+  2) ../mikka-policy-230/tests/e2e/self-improvement-api.spec.ts:17:1 › Skill baseline selection, actual claim receipt and feedback provenance use real authenticated routes 
+
+    Error: page.goto: net::ERR_TOO_MANY_REDIRECTS at http://127.0.0.1:3131/mikka/sign-up?next=%2F
+    Call log:
+      - navigating to "http://127.0.0.1:3131/mikka/sign-up?next=%2F", waiting until "load"
+
+
+       at fixtures.ts:118
+
+      116 | export async function register(page: Page, next = '/', email = `e2e-${randomUUID()}@example.com`) {
+      117 |   const password = randomBytes(32).toString('base64url')
+    > 118 |   await page.goto(app(`/sign-up?next=${encodeURIComponent(next)}`))
+          |              ^
+      119 |   await page.getByLabel('称呼', { exact: true }).fill('回归测试成员')
+      120 |   await page.getByLabel('邮箱', { exact: true }).fill(email)
+      121 |   await page.getByLabel('密码', { exact: true }).fill(password)
+        at register (/workspace/mikka-policy-230/tests/e2e/fixtures.ts:118:14)
+        at /workspace/mikka-policy-230/tests/e2e/self-improvement-api.spec.ts:21:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../evidence-policy-230-231-boundary/a3-e2e/self-improvement-api-Skill-26dee-e-real-authenticated-routes/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../evidence-policy-230-231-boundary/a3-e2e/self-improvement-api-Skill-26dee-e-real-authenticated-routes/error-context.md
+
+  2 failed
+    ../mikka-policy-230/tests/e2e/factory-execution-claim.spec.ts:11:1 › Factory execution claims reject stopped tasks and unadopted retry children before token issuance 
+    ../mikka-policy-230/tests/e2e/self-improvement-api.spec.ts:17:1 › Skill baseline selection, actual claim receipt and feedback provenance use real authenticated routes 
+  1 passed (1.1m)

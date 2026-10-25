@@ -1,0 +1,73 @@
+{
+  "utc": "2026-10-25T20:05:15.889Z",
+  "sourceRepository": "https://github.com/alexj11324/Mikka",
+  "sourceBase": "721bbf3615f7b9a3672c149112382dac75c72cb8",
+  "sourceBaseTree": "324888289c8422e00b816fbb3632bb0b841bc4b6",
+  "sourceHead": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "sourceHeadTree": "e879c7b1193385d728f8f0ef161732e78584d3bb",
+  "headParent": "721bbf3615f7b9a3672c149112382dac75c72cb8",
+  "branch": "codex/org-policy-230-231-20261025",
+  "sourceClean": true,
+  "worktrees": [
+    {
+      "path": "/workspace/mikka-policy-230",
+      "head": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+      "trackedStatus": "",
+      "untrackedPaths": []
+    },
+    {
+      "path": "/workspace/mikka-policy-runtime-710",
+      "head": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+      "trackedStatus": "",
+      "untrackedPaths": [
+        "node_modules",
+        "packages/daemon/node_modules",
+        "packages/protocol/node_modules"
+      ]
+    },
+    {
+      "path": "/workspace/mikka-policy-safety-local-a3",
+      "head": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+      "trackedStatus": "",
+      "untrackedPaths": [
+        "node_modules",
+        "packages/daemon/node_modules",
+        "packages/protocol/node_modules"
+      ]
+    }
+  ],
+  "patch": {
+    "path": "patches/public-safety-candidate.patch",
+    "sha256": "edc50f8f78f8cf6b3e928d84679ecea6e3ed0bf9e3bcd9980f2b5d75ed2837f7",
+    "indexOnlyCheck": "passed against exact base; original index/worktree untouched",
+    "selectedTree": "35e78f480a366ebf4869bb95d4f72620bbd4b680",
+    "differenceFromFullCandidate": "M\tdocs/acceptance/policy-230-231/README.md",
+    "selectedFiles": [
+      "app/api/mcp/route.ts",
+      "app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts",
+      "lib/credentials/runtime.ts",
+      "lib/mcp/worker.ts",
+      "lib/policy/runtime.ts",
+      "scripts/policy/continuation-acceptance.mjs",
+      "scripts/policy/oauth-mcp-acceptance.mjs"
+    ]
+  },
+  "publicRemoteHeadObserved": "721bbf3615f7b9a3672c149112382dac75c72cb8",
+  "notIncluded": [
+    "application checkout/history",
+    "compiled application .next",
+    "node_modules",
+    "real user data",
+    "credentials",
+    "provider keys"
+  ],
+  "limitations": [
+    "safety-only patch excludes held mixed documentation",
+    "local production build/test results are not exact-SHA remote CI or production acceptance"
+  ],
+  "fullCandidateReconstruction": {
+    "combinedPatchesTree": "e879c7b1193385d728f8f0ef161732e78584d3bb",
+    "equalsSourceHeadTree": true,
+    "sourceIndexUntouched": true
+  }
+}

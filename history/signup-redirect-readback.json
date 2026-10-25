@@ -1,0 +1,25 @@
+{
+  "utc": "2026-10-25T19:50:45.321Z",
+  "steps": [
+    {
+      "url": "http://127.0.0.1:3133/mikka/sign-up?next=%2F",
+      "status": 307,
+      "location": "/mikka/sign-up?next=%2F"
+    },
+    {
+      "url": "http://127.0.0.1:3133/mikka/sign-up?next=%2F",
+      "status": 307,
+      "location": "/mikka/sign-up?next=%2F"
+    },
+    {
+      "url": "http://127.0.0.1:3133/mikka/sign-up?next=%2F",
+      "status": 307,
+      "location": "/mikka/sign-up?next=%2F"
+    },
+    {
+      "url": "http://127.0.0.1:3133/mikka/sign-up?next=%2F",
+      "status": 307,
+      "location": "/mikka/sign-up?next=%2F"
+    }
+  ]
+}

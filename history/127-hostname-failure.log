@@ -1,0 +1,40 @@
+
+Running 3 tests using 1 worker
+
+(node:38419) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/e2e/factory-execution-claim.spec.ts:11:1 › Factory execution claims reject stopped tasks and unadopted retry children before token issuance (1.1s)
+  ✘  2 tests/e2e/self-improvement-api.spec.ts:17:1 › Skill baseline selection, actual claim receipt and feedback provenance use real authenticated routes (1.3s)
+(node:38559) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 tests/e2e/worker-authorization.spec.ts:8:1 › worker MCP rechecks current issue authority after queueing and revocation (5.1s)
+
+
+  1) tests/e2e/self-improvement-api.spec.ts:17:1 › Skill baseline selection, actual claim receipt and feedback provenance use real authenticated routes 
+
+    Error: page.goto: net::ERR_TOO_MANY_REDIRECTS at http://127.0.0.1:3133/mikka/sign-up?next=%2F
+    Call log:
+      - navigating to "http://127.0.0.1:3133/mikka/sign-up?next=%2F", waiting until "load"
+
+
+       at fixtures.ts:118
+
+      116 | export async function register(page: Page, next = '/', email = `e2e-${randomUUID()}@example.com`) {
+      117 |   const password = randomBytes(32).toString('base64url')
+    > 118 |   await page.goto(app(`/sign-up?next=${encodeURIComponent(next)}`))
+          |              ^
+      119 |   await page.getByLabel('称呼', { exact: true }).fill('回归测试成员')
+      120 |   await page.getByLabel('邮箱', { exact: true }).fill(email)
+      121 |   await page.getByLabel('密码', { exact: true }).fill(password)
+        at register (/workspace/mikka-policy-230/tests/e2e/fixtures.ts:118:14)
+        at /workspace/mikka-policy-230/tests/e2e/self-improvement-api.spec.ts:21:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../evidence-policy-230-231-boundary/a3-production-e2e/self-improvement-api-Skill-26dee-e-real-authenticated-routes/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../evidence-policy-230-231-boundary/a3-production-e2e/self-improvement-api-Skill-26dee-e-real-authenticated-routes/error-context.md
+
+  1 failed
+    tests/e2e/self-improvement-api.spec.ts:17:1 › Skill baseline selection, actual claim receipt and feedback provenance use real authenticated routes 
+  2 passed (12.8s)

@@ -1,0 +1,279 @@
+diff --git a/app/api/mcp/route.ts b/app/api/mcp/route.ts
+index f138d47..d551e54 100644
+--- a/app/api/mcp/route.ts
++++ b/app/api/mcp/route.ts
+@@ -268,7 +268,7 @@ const workerHandler = createMcpHandler(server => {
+ 
+   for (const [name, definition] of Object.entries(credentialToolDefinitions)) {
+     server.registerTool(name, { description: definition.description, inputSchema: definition.inputSchema }, async (input: unknown, ctx: { http?: { authInfo?: AuthInfo } }) => {
+-      const run = worker.workerRun(ctx.http?.authInfo)
++      const run = await worker.authorizeToolRun(ctx.http?.authInfo)
+       return outcome(await executeSystemCredentialTool({ userId: run.userId, runId: run.id, taskId: run.issueId }, name as CredentialToolName, input))
+     })
+   }
+diff --git a/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts b/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts
+index 83a343c..680033a 100644
+--- a/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts
++++ b/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts
+@@ -1,4 +1,4 @@
+-import { authorizePolicyWorker } from '@/lib/policy/runtime'
++import { authorizePolicyWorker, authorizeWorkerClaim } from '@/lib/policy/runtime'
+ import { PolicyError } from '@/lib/policy/contract'
+ import { defaultRunPolicy } from '@mikka/protocol/agent-policy'
+ import { randomUUID } from 'node:crypto'
+@@ -136,10 +136,15 @@ export async function POST(
+   }
+   try { await authorizePolicyWorker(caller.userId, runId, run.issueId ?? undefined, subscription?.workspaceId) }
+   catch (error) {
+-    if (!(error instanceof PolicyError)) return NextResponse.json({ error: 'policyUnavailable' }, { status: 503 })
+-    return NextResponse.json({ error: error.code }, { status: error.status })
++    // Existing rejected Factory retries must still reach their locked domain
++    // validation. An otherwise admissible retry is checked again in onClaim.
++    if (!(error instanceof PolicyError && error.code === 'policyScopeUnverified' && run.retryOf && !run.questionContinuation)) {
++      if (!(error instanceof PolicyError)) return NextResponse.json({ error: 'policyUnavailable' }, { status: 503 })
++      return NextResponse.json({ error: error.code }, { status: error.status })
++    }
+   }
+   const onClaim = async (tx: import('pg').PoolClient) => {
++    await authorizeWorkerClaim(tx, caller.userId, runId, run.issueId!, subscription?.workspaceId)
+     if (subscription) await bindSubscriptionClaim(tx, runId, subscription)
+     const mailbox = (await tx.query('SELECT m."workspaceId" FROM agent_runs r JOIN session_mailboxes m ON m.id=r."mailboxId" WHERE r.id=$1',[runId])).rows[0]
+     const captured = (await tx.query("SELECT tenant FROM security_audit_resource_scopes WHERE source='agent_runs' AND resource=$1",[runId])).rows[0]
+@@ -166,7 +171,8 @@ export async function POST(
+         onClaim,
+       )
+       claimed = [{ id: runId }]
+-    } catch {
++    } catch (error) {
++      if (error instanceof PolicyError) return NextResponse.json({ error: error.code }, { status: error.status })
+       await db
+         .update(agentRuns)
+         .set({
+@@ -197,7 +203,8 @@ export async function POST(
+         onClaim,
+       )
+       claimed = [{ id: runId }]
+-    } catch {
++    } catch (error) {
++      if (error instanceof PolicyError) return NextResponse.json({ error: error.code }, { status: error.status })
+       await db
+         .update(agentRuns)
+         .set({
+@@ -223,6 +230,7 @@ export async function POST(
+         onClaim,
+       )
+     } catch (error) {
++      if (error instanceof PolicyError) return NextResponse.json({ error: error.code }, { status: error.status })
+       if (!(error instanceof FactoryError)) throw error
+       return NextResponse.json(
+         { error: 'Execution binding is unavailable or stale.' },
+diff --git a/lib/credentials/runtime.ts b/lib/credentials/runtime.ts
+index 446ae58..2740470 100644
+--- a/lib/credentials/runtime.ts
++++ b/lib/credentials/runtime.ts
+@@ -1,3 +1,6 @@
++import { withPolicyTool, authorizePolicyWorker } from '@/lib/policy/runtime'
++import { workerPolicyScope } from '@/lib/policy/run-scope'
++import { PolicyError } from '@/lib/policy/contract'
+ import { appendAudit } from '@/lib/audit/store'
+ import 'server-only'
+ import { Pool } from 'pg'
+@@ -12,7 +15,7 @@ import { universalAuthTokenProvider } from './universal-auth'
+ import { credentialServices } from './services'
+ import { credentialHttp } from './http'
+ import { OwnedChromiumExecutor, type OwnedBrowserPolicy } from './owned-chromium'
+-import { CredentialExecutionTools, type CredentialToolActor, type CredentialToolName } from './execution-tools'
++import { CredentialExecutionTools, credentialToolDefinitions, type CredentialToolActor, type CredentialToolName } from './execution-tools'
+ 
+ const globalRuntime = globalThis as unknown as { mikkaCredentials?: {
+   broker?: CredentialBroker; cleanupBroker?: CredentialBroker; workspace?: Pool;
+@@ -89,11 +92,21 @@ export function getCredentialCleanupBroker() { return state.cleanupBroker ??= bu
+ 
+ export async function executeSystemCredentialTool(actor: CredentialToolActor, name: CredentialToolName, input: unknown) {
+   try {
+-    state.tools ??= new CredentialExecutionTools({ app: pool, workspace: workspacePool(), broker: getCredentialBroker(), basePath: process.env.MIKKA_BASE_PATH ?? '/mikka' })
+-    // Check enable flags on every call, including an already initialized executor.
+-    getCredentialBroker()
+-    return await state.tools.execute(actor, name, input)
+-  } catch (error) { return { error: error instanceof CredentialError ? error.code : 'credential_unavailable' } }
++    const parsed = credentialToolDefinitions[name].inputSchema.safeParse(input)
++    if (!parsed.success) throw new CredentialError('credential_tool_input_invalid', 400)
++    const runId = actor.runId ?? parsed.data.runId
++    const scope = runId ? await workerPolicyScope(pool, actor.userId, runId) : undefined
++    if (runId) {
++      const row = (await pool.query('SELECT "issueId" FROM agent_runs WHERE id=$1 AND "userId"=$2', [runId, actor.userId])).rows[0]
++      await authorizePolicyWorker(actor.userId, runId, actor.taskId ?? row?.issueId ?? undefined)
++    }
++    return await withPolicyTool(actor.userId, async () => {
++      state.tools ??= new CredentialExecutionTools({ app: pool, workspace: workspacePool(), broker: getCredentialBroker(), basePath: process.env.MIKKA_BASE_PATH ?? '/mikka' })
++      // Check enable flags on every call, including an already initialized executor.
++      getCredentialBroker()
++      return state.tools.execute(actor, name, input)
++    }, scope?.workspaceId ? [scope.workspaceId] : [])
++  } catch (error) { return { error: error instanceof CredentialError ? error.code : error instanceof PolicyError ? error.code : 'credential_unavailable' } }
+ }
+ 
+ export async function handleCredentialRequest(request: Request, action: 'create' | 'get' | 'submit' | 'cancel' | 'events', id?: string) {
+diff --git a/lib/mcp/worker.ts b/lib/mcp/worker.ts
+index d31d397..938407a 100644
+--- a/lib/mcp/worker.ts
++++ b/lib/mcp/worker.ts
+@@ -91,6 +91,15 @@ export async function verifyRunToken(request: Request, bearerToken?: string): Pr
+   }
+ }
+ 
++/** Credential callbacks also execute after request body parsing. Revalidate the
++ * opaque token, run/issue owner, live state and policy before using its actor. */
++export async function authorizeToolRun(authInfo: AuthInfo | undefined) {
++  const original = workerRun(authInfo)
++  const current = await currentRun(original.token)
++  if (!current || current.runId !== original.id || current.userId !== original.userId) throw new Error('MCP run authorization is no longer valid')
++  return { ...original, issueId: current.issueId }
++}
++
+ /** The run a worker request comes from. */
+ export function workerRun(authInfo: AuthInfo | undefined): { id: string; userId: string; issueId: string | null; token: string } {
+   const extra = authInfo?.extra
+diff --git a/lib/policy/runtime.ts b/lib/policy/runtime.ts
+index acba5ca..b8ce461 100644
+--- a/lib/policy/runtime.ts
++++ b/lib/policy/runtime.ts
+@@ -1,4 +1,5 @@
+ import "server-only";
++import { transaction } from "../audit/store";
+ import { AsyncLocalStorage } from "node:async_hooks";
+ import { auth } from "@/lib/auth";
+ import { pool } from "@/lib/db";
+@@ -10,7 +11,7 @@ import { policyHttp } from "./http";
+ import { authorizeModelRequest } from "./model";
+ import type { PolicyClient } from "./sql-client";
+ import { workerPolicyScope } from "./run-scope";
+-import { type ModelRoute } from "./contract";
++import { PolicyError, type ModelRoute } from "./contract";
+ 
+ export function policyStore() {
+   return new PolicyStore(
+@@ -68,8 +69,9 @@ export async function workerPolicyInTransaction(
+   userId: string,
+   runId: string,
+   issueId: string,
++  suppliedWorkspace?: string,
+ ) {
+-  const scope = await workerPolicyScope(app, userId, runId);
++  const scope = await workerPolicyScope(app, userId, runId, suppliedWorkspace);
+   if (!scope.verified) {
+     const denied = await policyStore().workerDenial(workspace, userId, runId);
+     if (denied) return denied;
+@@ -98,3 +100,23 @@ export async function withPolicyTool<T>(
+     capturedWorkspaces,
+   );
+ }
++
++/** Claim hooks already hold the app transaction. Never borrow another app
++ * connection; workspace denial audits commit independently before app rollback. */
++export async function authorizeWorkerClaim(
++  app: PolicyClient,
++  userId: string,
++  runId: string,
++  issueId: string,
++  workspaceId?: string,
++) {
++  try {
++    const denied = await transaction(workspacePool, (tx) =>
++      workerPolicyInTransaction(app, tx, userId, runId, issueId, workspaceId),
++    );
++    if (denied) throw denied;
++  } catch (error) {
++    if (error instanceof PolicyError) throw error;
++    throw new PolicyError("policyUnavailable", 503);
++  }
++}
+diff --git a/scripts/policy/continuation-acceptance.mjs b/scripts/policy/continuation-acceptance.mjs
+index 69d41c8..0779b7a 100644
+--- a/scripts/policy/continuation-acceptance.mjs
++++ b/scripts/policy/continuation-acceptance.mjs
+@@ -30,17 +30,18 @@ export async function continuationPolicyAcceptance({app,workspace,owner,userId,d
+   assert.equal((await app.query(`SELECT status FROM agent_runs WHERE id=$1`,[child])).rows[0].status,'queued')
+   assert.equal((await app.query(`SELECT count(*)::int count FROM run_tokens WHERE "runId"=$1`,[child])).rows[0].count,0)
+   Object.assign(receipts.at(-1),{probe:'ordinary continuation moved A to unmanaged B cannot bypass captured A policy',expected:'policyScopeMismatch'})
+-  const historical=randomUUID(), retry=randomUUID(), question=randomUUID()
++  const historical=randomUUID(), retry=randomUUID(), question=randomUUID(), genericRetry=randomUUID()
+   // Old ordinary runs without a trusted organization capture can legitimately
+   // have personal projections. Neither resume representation proves that past.
+   await app.query(`INSERT INTO agent_runs(id,"userId","issueId","agentId","deviceId","deviceRepoId",status) VALUES($1,$2,$3,$4,$5,$6,'done')`,[historical,userId,issue,agentId,deviceId,repoId])
+   await app.query(`INSERT INTO agent_runs(id,"userId","issueId","agentId","deviceId","deviceRepoId",status,"continuesRunId") VALUES($1,$2,$3,$4,$5,$6,'queued',$7)`,[retry,userId,issue,agentId,deviceId,repoId,historical])
+   await app.query(`INSERT INTO agent_runs(id,"userId","issueId","agentId","deviceId","deviceRepoId",status,"questionContinuation") VALUES($1,$2,$3,$4,$5,$6,'queued',$7)`,[question,userId,issue,agentId,deviceId,repoId,{originRunId:historical}])
+-  for(const candidate of [retry,question]) {
++  await app.query(`INSERT INTO agent_runs(id,"userId","issueId","agentId","deviceId","deviceRepoId",status,"retryOf") VALUES($1,$2,$3,$4,$5,$6,'queued',$7)`,[genericRetry,userId,issue,agentId,deviceId,repoId,historical])
++  for(const candidate of [retry,question,genericRetry]) {
+     const denied=await anonymous.call(`/v1/devices/${deviceId}/runs/${candidate}/claim`,'POST',{},deviceHeaders)
+     assert.equal(denied.status,403);assert.equal(denied.body.error,'policyScopeUnverified')
+     assert.equal((await app.query(`SELECT status FROM agent_runs WHERE id=$1`,[candidate])).rows[0].status,'queued')
+     assert.equal((await app.query(`SELECT count(*)::int count FROM run_tokens WHERE "runId"=$1`,[candidate])).rows[0].count,0)
+   }
+-  return {auditRepairSha,captured,childStatus:'queued',issuedRunTokens:0,unverifiedHistory:['ordinary continuation: denied','questionContinuation without continuesRunId: denied'],policyResult:'policyScopeMismatch',isolation:'test overlay only; not final combined source/production acceptance'}
++  return {auditRepairSha,captured,childStatus:'queued',issuedRunTokens:0,unverifiedHistory:['ordinary continuation: denied','questionContinuation without continuesRunId: denied','generic retryOf reaching locked claim hook: denied'],policyResult:'policyScopeMismatch',isolation:'test overlay only; not final combined source/production acceptance'}
+ }
+diff --git a/scripts/policy/oauth-mcp-acceptance.mjs b/scripts/policy/oauth-mcp-acceptance.mjs
+index ede6d8c..3f260e3 100644
+--- a/scripts/policy/oauth-mcp-acceptance.mjs
++++ b/scripts/policy/oauth-mcp-acceptance.mjs
+@@ -13,29 +13,44 @@ export async function oauthMcpAcceptance({ app, workspace, origin, admin, ownerI
+   const tools = [ ['search_notion_pages',{query:'synthetic'}], ['read_notion_page_blocks',{block_id:'synthetic'}], ['search_slack_messages',{query:'synthetic'}], ['read_slack_thread',{channel:'synthetic',ts:'1.0'}] ]
+   let seq=0, version=0
+   const payload=(name,input)=>JSON.stringify({jsonrpc:'2.0',id:++seq,method:'tools/call',params:{name,arguments:input}})
+-  async function call(name,input,expected) {
+-    const res=await fetch(new URL('/mikka/api/mcp',origin),{method:'POST',headers:{authorization:`Bearer ${token}`,accept:'application/json, text/event-stream','content-type':'application/json'},body:payload(name,input)})
++  async function call(name,input,expected,bearer=token) {
++    const res=await fetch(new URL('/mikka/api/mcp',origin),{method:'POST',headers:{authorization:`Bearer ${bearer}`,accept:'application/json, text/event-stream','content-type':'application/json'},body:payload(name,input)})
+     const body=await res.text(); assert.equal(res.status,200); if (expected === null) assert.ok(!body.includes('"isError":true'),body.slice(0,400)); else assert.ok(body.includes(expected),`${name} expected ${expected}: ${body.slice(0,400)}`)
+     receipts.push({utc:new Date().toISOString(),method:'POST',path:'/api/mcp',status:res.status,probe:`oauth:${name}`,expected})
+   }
+   const doc=state=>({schemaVersion:1,state,offlineTtlSeconds:60,layers:[{scope:'workspace',id:w,ceiling:{git_push:'deny'},models:[route]}]})
+   const publish=async state=>{const r=await admin.call(`/api/policy?workspaceId=${w}`,'POST',{expectedVersion:version,document:doc(state)});assert.equal(r.status,201);version++}
+   for(const [name,input] of tools) await call(name,input,'composioNotConfigured')
+-  await delayed('oauth first enrollment after auth',()=>publish('enforce'),'toolEnforcementUnavailable')
++  const workerToken=`mkw_${randomBytes(32).toString('base64url')}`, workerRun=randomUUID(), workerIssue=randomUUID(), workerAgent=randomUUID(), workerTeam=randomUUID()
++  await workspace.query(`INSERT INTO mikka_teams(id,"workspaceId","userId",name,identifier) VALUES($1,$2,$3,'Synthetic credential policy','CRED')`,[workerTeam,w,ownerId])
++  await app.query(`INSERT INTO issues(id,"userId",title,content,status,priority,scope) VALUES($1,$2,'Synthetic credential policy','{"type":"doc","content":[]}','doing','normal','workspace')`,[workerIssue,ownerId])
++  await workspace.query(`INSERT INTO mikka_team_issues("issueId","teamId","workspaceId","userId") VALUES($1,$2,$3,$4)`,[workerIssue,workerTeam,w,ownerId])
++  await app.query(`INSERT INTO agents(id,"userId",harness,name) VALUES($1,$2,'codex','Synthetic credential policy')`,[workerAgent,ownerId])
++  await app.query(`INSERT INTO agent_runs(id,"userId","issueId","agentId",status) VALUES($1,$2,$3,$4,'running')`,[workerRun,ownerId,workerIssue,workerAgent])
++  await app.query(`INSERT INTO run_tokens(id,"runId","userId","tokenHash","expiresAt") VALUES($1,$2,$3,$4,now()+interval '1 hour')`,[randomUUID(),workerRun,ownerId,createHash('sha256').update(workerToken).digest('hex')])
++  const credentialInput={serviceId:'synthetic',mode:'api_header'}
++  await call('prepare_credential_request',credentialInput,'credential_broker_disabled',workerToken)
++  let firstReady=0, finishFirst
++  const firstBarrier=new Promise(resolve=>{finishFirst=resolve})
++  const firstPublish=async()=>{firstReady++;if(firstReady===2){await publish('enforce');finishFirst()}await firstBarrier}
++  await Promise.all([
++    delayed('oauth first enrollment after auth',firstPublish,'toolEnforcementUnavailable'),
++    delayed('worker credential first enrollment after auth',firstPublish,'MCP run authorization is no longer valid',workerToken,'prepare_credential_request',credentialInput),
++  ])
+   for(const [name,input] of tools) await call(name,input,'toolEnforcementUnavailable')
+   // Caller-controlled scope/owner fields never select an unmanaged principal.
+   await call('search_notion_pages',{query:'synthetic',userId:ownerId,workspaceId:randomUUID()},'toolEnforcementUnavailable')
+-  async function delayed(check,mutation,expected) {
+-    const requestId=randomUUID(), body=payload('search_notion_pages',{query:'delayed synthetic'})
++  async function delayed(check,mutation,expected,bearer=token,name='search_notion_pages',input={query:'delayed synthetic'}) {
++    const requestId=randomUUID(), body=payload(name,input)
+     let send
+     const response=new Promise((resolve,reject)=>{
+-      send=httpRequest(new URL('/mikka/api/mcp',origin),{method:'POST',headers:{authorization:`Bearer ${token}`,accept:'application/json, text/event-stream','content-type':'application/json','content-length':Buffer.byteLength(body),'x-request-id':requestId}},res=>{let text='';res.on('data',c=>{text+=c});res.on('end',()=>resolve({status:res.statusCode,body:text}))})
++      send=httpRequest(new URL('/mikka/api/mcp',origin),{method:'POST',headers:{authorization:`Bearer ${bearer}`,accept:'application/json, text/event-stream','content-type':'application/json','content-length':Buffer.byteLength(body),'x-request-id':requestId}},res=>{let text='';res.on('data',c=>{text+=c});res.on('end',()=>resolve({status:res.statusCode,body:text}))})
+       send.on('error',reject);send.setTimeout(20000,()=>send.destroy(new Error('Delayed OAuth fixture timeout')))
+     });void response.catch(()=>{})
+     try {
+       send.write(body.slice(0,1));send.flushHeaders()
+       const deadline=Date.now()+15000
+-      while(!(await app.query(`SELECT 1 FROM security_audit_events WHERE event->>'action'='mcp.authenticated' AND event->>'requestId'=$1`,[requestId])).rowCount){assert.ok(Date.now()<deadline,'request auth audit timeout');await new Promise(r=>setTimeout(r,25))}
++      while(!(await app.query(`SELECT 1 FROM security_audit_events WHERE event->>'action'=$2 AND event->>'requestId'=$1`,[requestId,bearer.startsWith('mkw_')?'worker.authenticated':'mcp.authenticated'])).rowCount){assert.ok(Date.now()<deadline,'request auth audit timeout');await new Promise(r=>setTimeout(r,25))}
+       await mutation();send.end(body.slice(1))
+       const r=await response;assert.equal(r.status,200);assert.ok(r.body.includes(expected),`${check}: ${r.body.slice(0,400)}`)
+       receipts.push({utc:new Date().toISOString(),method:'POST',path:'/api/mcp',status:r.status,probe:check,expected})
+@@ -69,5 +84,5 @@ export async function oauthMcpAcceptance({ app, workspace, origin, admin, ownerI
+   const events=(await workspace.query(`SELECT event->>'reason' reason,count(*)::int count FROM security_audit_events WHERE tenant=$1 AND event->>'action'='policy.tool' GROUP BY 1`,[w])).rows
+   assert.ok(events.some(r=>r.reason==='policyRevoked' && r.count>=7))
+   await publish('enforce') // Reuse the same two synthetic users without rate-limit bypasses.
+-  return {workspaceId:w,versions:version,events,providerConfiguration:'absent; unmanaged returned composioNotConfigured; managed returned policy denial before client construction'}
++  return {workspaceId:w,versions:version,events,workerCredentialGate:'unmanaged configuration result preserved; policy publication after HTTP auth prevents execution',providerConfiguration:'absent; unmanaged returned composioNotConfigured; managed returned policy denial before client construction'}
+ }

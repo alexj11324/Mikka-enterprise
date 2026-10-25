@@ -1,0 +1,8 @@
+{
+  "utc": "2026-10-25T19:38:48.338Z",
+  "sourceSha": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "result": "failed local setup: 15s cold-route timeout and sign-up redirect loop; not a passed regression",
+  "rows": [],
+  "oldRequestRetried": false,
+  "next": "fresh fixture/API-only retry and separate production build; no source auth configuration changes"
+}

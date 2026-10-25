@@ -1,0 +1,8 @@
+{
+  "utc": "2026-10-25T20:10:27.257Z",
+  "textualFilesChecked": 29,
+  "filesRedactedThisPass": 0,
+  "findings": 0,
+  "video": "original API recording previously decoded and frames inspected; synthetic identifiers, signatures and public key only",
+  "dataScope": "synthetic *_e2e fixture data and public project/source metadata only; no real user records or credential values"
+}

@@ -1,0 +1,28 @@
+{
+  "utc": "2026-10-25T19:59:50.945Z",
+  "localSha": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "localBranch": "codex/org-policy-230-231-20261025",
+  "publicSha": "721bbf3615f7b9a3672c149112382dac75c72cb8",
+  "publicPr": 264,
+  "draft": true,
+  "publicMainCi": "failed: 2 backend tests; local fix verified without altering their assertions",
+  "policyCiAtPublicSha": "success",
+  "localProductionBackendRegressions": "3 passed",
+  "securityTestCancellationRequested": false,
+  "securityTestsCompleted": true,
+  "providerKeysForwarded": false,
+  "publishStatus": "held, pending user/parent public-core and enterprise-extension boundary review",
+  "blockedOperation": {
+    "action": "push local fixes/evidence to public repository, then exact-SHA remote CI",
+    "target": "alexj11324/Mikka PR #264",
+    "reason": "latest user instructed publication pause until boundary review",
+    "status": "pending explicit boundary decision; no push attempted after pause; not an automatic-review denial"
+  },
+  "files": [
+    "BOUNDARY.md",
+    "public-safety-candidate.patch",
+    "held-mixed-documentation.patch",
+    "proof-a3ed508/environment-results.json",
+    "proof-a3ed508/SHA256SUMS"
+  ]
+}
