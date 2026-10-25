@@ -1,4 +1,4 @@
-import type { CorePolicyAdminRuntime } from './core-policy-admin';
+import type { CorePolicyAdminRuntime } from '@/lib/business/core-policy-admin';
 import { policyHttp } from './http';
 /** Only the management composition is extracted. authorizeModel, worker, tool,
  * MCP and lease enforcement remain in the public runtime, including enrollment. */

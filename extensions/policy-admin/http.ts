@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CorePolicyAdmin, CorePolicyContract } from "./core-policy-admin";
+import type { CorePolicyAdmin, CorePolicyContract } from "@/lib/business/core-policy-admin";
 
 const headers = {
   "Cache-Control": "private, no-store",

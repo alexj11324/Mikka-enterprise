@@ -18,7 +18,7 @@ function load(name){
 }
 test('extracted management surface strictly typechecks without a SQL/runtime import',()=>{
  const files=readdirSync(dir).filter(f=>f.endsWith('.ts')).map(f=>join(dir,f));
- const p=ts.createProgram(files,{strict:true,noEmit:true,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,skipLibCheck:true,types:['node']});
+ const p=ts.createProgram(files,{strict:true,noEmit:true,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,skipLibCheck:true,types:['node'],baseUrl:resolve('core'),paths:{'@/*':['./*']}});
  assert.deepEqual(ts.getPreEmitDiagnostics(p).map(x=>ts.flattenDiagnosticMessageText(x.messageText,'\n')),[]);
 });
 test('management adapter over real loopback HTTP preserves transport guards and delegates authority to core (test double, not PostgreSQL)',async()=>{

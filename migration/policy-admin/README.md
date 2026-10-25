@@ -1,3 +1,9 @@
+# Policy management migration and active candidate binding
+
+Active integration now pins public candidate PR279 at a04bf12b81e9f827e88c7ddf9b48c29d38ae19c7. It includes the reviewed public policy safety source, audit continuation repairs through1b39b709 and main666ae460. The overlay manifest installs the actual management route and handler; CorePolicyAdmin is now imported from the public core. PolicyStore and all execution gates remain public. The historical preparation notes below describe earlier stages, not the current inactive/active state.
+
+`core-split.patch` is retained as source migration history; it is already applied in the new core candidate and must not be applied again. `enterprise-route.ts.template` is now copied to the active overlay route. The complete original HTTP+PG suite is installed as an enterprise integration test. Real PG/compiled HTTP acceptance runs via `scripts/test-policy-integration.mjs` after both full builds. It creates two disposable loopback databases, uses real Better Auth only to provision synthetic test sessions (no email delivery/provider credentials), and verifies the same persisted policy remains enforced by the community build without its management adapter. No production database or grants are involved.
+
 # Actual management extraction, not an enabled enterprise feature
 
 The extracted HTTP implementation is under `extensions/policy-admin/`. Its source is public PR264 at721bbf plus the reviewed a3ed508 safety patch recorded on evidence branch2050898. The patch changes execution authorization in public runtime; it does not change `handlePolicy`, `http.ts` or the management route. `source-map.json` preserves original commit/author/blob attribution. AGPL and existing notices remain applicable.

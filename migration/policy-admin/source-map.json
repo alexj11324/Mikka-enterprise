@@ -54,5 +54,10 @@
     "publicTarget": "core-split.patch direct PolicyStore regression assertions",
     "validation": "public core frozen-lockfile pnpm typecheck passed; PostgreSQL not executed"
   },
-  "coreSplitSha256": "c1dc66f9af94786efa88b65b7f4fea1c4eeecadd2f8583363ed108f94a1e1fb3"
+  "coreSplitSha256": "c1dc66f9af94786efa88b65b7f4fea1c4eeecadd2f8583363ed108f94a1e1fb3",
+  "activeCorePin": "a04bf12b81e9f827e88c7ddf9b48c29d38ae19c7",
+  "activeCorePR": "https://github.com/alexj11324/Mikka/pull/279",
+  "retainedMain": "666ae4604301454b634b10678e57dd12d16d7509",
+  "activeInterface": "core/lib/business/core-policy-admin.ts",
+  "runtimeRoute": "overlay/app/api/policy/route.ts"
 }

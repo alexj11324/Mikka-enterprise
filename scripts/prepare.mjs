@@ -26,11 +26,21 @@ export function prepare(mode, destination) {
   execFileSync('git',['apply',resolve(root,'public-interface.patch')],{cwd:dest,env:{...process.env,GIT_CEILING_DIRECTORIES:dirname(dest)}})
   if(mode==='enterprise')for(const entry of manifest.overrides){
     // A single explicit business seam. Do not accept arbitrary paths from manifests.
-    if(entry.target!=='lib/business/implementation.ts'||entry.source!=='overlay/lib/business/implementation.ts')throw new Error('Forbidden override target')
+    const allowed={
+      'overlay/lib/business/implementation.ts':'lib/business/implementation.ts',
+      'overlay/app/api/policy/route.ts':'app/api/policy/route.ts',
+      'extensions/policy-admin/http.ts':'lib/business/policy-admin/http.ts',
+      'extensions/policy-admin/runtime.ts':'lib/business/policy-admin/runtime.ts',
+      'extensions/policy-admin/app-route.ts':'lib/business/policy-admin/app-route.ts',
+      'migration/policy-admin/enterprise-postgres.test.ts.template':'lib/business/policy-admin/postgres.test.ts',
+    }
+    if(allowed[entry.source]!==entry.target)throw new Error('Forbidden override target')
+    if(!existsSync(resolve(dest,'lib/policy/admin-runtime.ts')))throw new Error('Missing public policy authority facade')
     const source=resolve(root,entry.source)
     if(realpathSync(source)!==source)throw new Error('Symlink override rejected')
     const data=readFileSync(source)
     if(digest(data)!==entry.sha256)throw new Error('Override digest mismatch')
+    mkdirSync(dirname(resolve(dest,entry.target)),{recursive:true})
     copyFileSync(source,resolve(dest,entry.target))
   }
   writeFileSync(resolve(dest,'composition.json'),JSON.stringify({mode,coreSha:sha,publicInterfacePatchSha256:manifest.publicInterfacePatchSha256,overrides:mode==='enterprise'?manifest.overrides:[]},null,2)+'\n')

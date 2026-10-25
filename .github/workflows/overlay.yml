@@ -8,6 +8,15 @@ jobs:
   contract:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,3 +36,11 @@ jobs:
         run: node scripts/build.mjs community
       - name: Build enterprise against the same pinned public core
         run: node scripts/build.mjs enterprise
+      - name: Real split-database policy and compiled HTTP integration
+        run: node scripts/test-policy-integration.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: policy-split-evidence
+          path: .build/policy-integration-evidence/
+          if-no-files-found: ignore

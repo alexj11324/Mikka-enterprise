@@ -1,4 +1,4 @@
-import type { CorePolicyAdminRuntime } from './core-policy-admin';
+import type { CorePolicyAdminRuntime } from '@/lib/business/core-policy-admin';
 import { createHandlePolicy } from './runtime';
 /** The composition host binds its core runtime; no process-global registration
  * or fallback store. Binding is intentionally required before a Next route exists. */
