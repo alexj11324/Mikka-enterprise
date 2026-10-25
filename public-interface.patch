@@ -1,0 +1,38 @@
+diff --git a/lib/business/contract.ts b/lib/business/contract.ts
+new file mode 100644
+index 0000000..5558e14
+--- /dev/null
++++ b/lib/business/contract.ts
+@@ -0,0 +1,15 @@
++/** Public v1 extension seam. Discovery metadata is never an authorization,
++ * quota allocation, credential grant, audit exemption or execution decision. */
++export interface BusinessExtension {
++  readonly apiVersion: 1
++  readonly distribution: 'community' | 'enterprise'
++  readonly managementModules: readonly string[]
++}
++export function validateBusinessExtension(value: BusinessExtension): BusinessExtension {
++  if (value.apiVersion !== 1 || !['community', 'enterprise'].includes(value.distribution) ||
++      !Array.isArray(value.managementModules) || value.managementModules.some(id => !/^[a-z][a-z0-9-]{0,63}$/.test(id))) {
++    throw new Error('Unsupported business extension contract')
++  }
++  return Object.freeze({apiVersion: 1, distribution: value.distribution,
++    managementModules: Object.freeze([...new Set(value.managementModules)])})
++}
+diff --git a/lib/business/implementation.ts b/lib/business/implementation.ts
+new file mode 100644
+index 0000000..0a82274
+--- /dev/null
++++ b/lib/business/implementation.ts
+@@ -0,0 +1,3 @@
++import { validateBusinessExtension } from './contract'
++/** Standalone public build; no private import, token, network or feature gate. */
++export default validateBusinessExtension({apiVersion: 1, distribution: 'community', managementModules: []})
+diff --git a/lib/business/index.ts b/lib/business/index.ts
+new file mode 100644
+index 0000000..809b0cf
+--- /dev/null
++++ b/lib/business/index.ts
+@@ -0,0 +1,2 @@
++export type { BusinessExtension } from './contract'
++export { default as businessExtension } from './implementation'

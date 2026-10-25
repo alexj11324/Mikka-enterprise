@@ -1,0 +1,13 @@
+✔ community composition compiles without private imports and exports only declared metadata (593.211411ms)
+✔ enterprise composition compiles without private imports and exports only declared metadata (352.730709ms)
+✔ composition below overlay repository applies public patch to destination, not parent (109.114463ms)
+✔ enterprise overlay preserves every existing public tracked file including security and notices (203.801433ms)
+✔ build forwards existing transport but no application credentials or migration configuration (0.48461ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1512.270028

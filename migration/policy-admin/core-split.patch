@@ -1,0 +1,454 @@
+diff --git a/lib/policy/http.ts b/lib/policy/http.ts
+deleted file mode 100644
+--- a/lib/policy/http.ts
++++ /dev/null
+@@ -1,144 +0,0 @@
+-import { z } from "zod";
+-import { PolicyStore } from "./store";
+-import { documentSchema, PolicyError } from "./contract";
+-const publishSchema = z.union([
+-  z.strictObject({
+-    expectedVersion: z.number().int().min(0).max(2147483646),
+-    document: documentSchema,
+-  }),
+-  z.strictObject({
+-    expectedVersion: z.number().int().min(1).max(2147483646),
+-    rollbackOf: z.number().int().positive(),
+-  }),
+-]);
+-const headers = {
+-  "Cache-Control": "private, no-store",
+-  "X-Content-Type-Options": "nosniff",
+-};
+-async function body(request: Request) {
+-  if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
+-    throw new PolicyError("policyInvalid", 415);
+-  const reader = request.body?.getReader();
+-  if (!reader) throw new PolicyError("policyInvalid", 422);
+-  const chunks: Uint8Array[] = [];
+-  let size = 0;
+-  try {
+-    for (;;) {
+-      const { value, done } = await reader.read();
+-      if (done) break;
+-      size += value.length;
+-      if (size > 65536) {
+-        await reader.cancel();
+-        throw new PolicyError("policyInvalid", 413);
+-      }
+-      chunks.push(value);
+-    }
+-    try {
+-      return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+-    } catch {
+-      throw new PolicyError("policyInvalid", 422);
+-    }
+-  } finally {
+-    reader.releaseLock();
+-  }
+-}
+-export function policyHttp(deps: {
+-  store: PolicyStore;
+-  origin: string;
+-  authenticate(request: Request): Promise<{ userId: string } | null>;
+-}) {
+-  return async (request: Request) => {
+-    try {
+-      if (
+-        request.headers.has("authorization") ||
+-        !request.headers.get("cookie")
+-      )
+-        throw new PolicyError("policyBrowserRequired", 401);
+-      const actor = await deps.authenticate(request);
+-      if (!actor) throw new PolicyError("policyBrowserRequired", 401);
+-      const url = new URL(request.url);
+-      const workspaceId = z.uuid().parse(url.searchParams.get("workspaceId"));
+-      if (request.method === "GET") {
+-        const version = url.searchParams.has("version")
+-          ? z.coerce
+-              .number()
+-              .int()
+-              .positive()
+-              .parse(url.searchParams.get("version"))
+-          : undefined;
+-        const signed = await deps.store.read(
+-          workspaceId,
+-          actor.userId,
+-          version,
+-        );
+-        // Current effective binding carries its own signed version. No mixed-version response.
+-        let effective;
+-        let blocked;
+-        if (signed && version === undefined) {
+-          try {
+-            effective = await deps.store.current(actor.userId, workspaceId);
+-          } catch (error) {
+-            if (
+-              !(error instanceof PolicyError) ||
+-              error.code !== "policyRevoked"
+-            )
+-              throw error;
+-            blocked = error.code;
+-          }
+-        }
+-        return Response.json(
+-          {
+-            signed: effective?.[0]?.signed ?? signed,
+-            effective,
+-            blocked,
+-            keyId: deps.store.signer.keyId,
+-            publicKey: deps.store.signer.publicKey,
+-          },
+-          { headers },
+-        );
+-      }
+-      if (request.method !== "POST")
+-        throw new PolicyError("methodNotAllowed", 405);
+-      if (
+-        !deps.origin ||
+-        request.headers.get("origin") !== deps.origin ||
+-        request.headers.get("sec-fetch-site") === "cross-site"
+-      )
+-        throw new PolicyError("originRejected", 403);
+-      const input = publishSchema.parse(await body(request));
+-      const result =
+-        "document" in input
+-          ? await deps.store.publish(
+-              workspaceId,
+-              actor.userId,
+-              input.expectedVersion,
+-              input.document,
+-            )
+-          : await deps.store.publish(
+-              workspaceId,
+-              actor.userId,
+-              input.expectedVersion,
+-              undefined,
+-              input.rollbackOf,
+-            );
+-      return Response.json(result, { status: 201, headers });
+-    } catch (error) {
+-      const invalid = error instanceof z.ZodError;
+-      return Response.json(
+-        {
+-          error:
+-            error instanceof PolicyError
+-              ? error.code
+-              : invalid
+-                ? "policyInvalid"
+-                : "policyUnavailable",
+-        },
+-        {
+-          status:
+-            error instanceof PolicyError ? error.status : invalid ? 422 : 503,
+-          headers,
+-        },
+-      );
+-    }
+-  };
+-}
+diff --git a/lib/policy/runtime.ts b/lib/policy/runtime.ts
+--- a/lib/policy/runtime.ts
++++ b/lib/policy/runtime.ts
+@@ -1,13 +1,10 @@
+ import "server-only";
+ import { transaction } from "../audit/store";
+ import { AsyncLocalStorage } from "node:async_hooks";
+-import { auth } from "@/lib/auth";
+ import { pool } from "@/lib/db";
+ import { workspacePool } from "@/lib/workspace-db";
+-import { appOrigin } from "@/lib/mcp/resource";
+ import { policySigner } from "./signing";
+ import { PolicyStore } from "./store";
+-import { policyHttp } from "./http";
+ import { authorizeModelRequest } from "./model";
+ import type { PolicyClient } from "./sql-client";
+ import { workerPolicyScope } from "./run-scope";
+@@ -18,26 +15,6 @@
+     workspacePool,
+     policySigner(process.env.BETTER_AUTH_SECRET ?? ""),
+   );
+-}
+-export async function handlePolicy(request: Request) {
+-  try {
+-    return await policyHttp({
+-      store: policyStore(),
+-      origin: appOrigin ?? "",
+-      authenticate: async (req) => {
+-        const session = await auth.api.getSession({
+-          headers: req.headers,
+-          query: { disableCookieCache: true },
+-        });
+-        return session ? { userId: session.user.id } : null;
+-      },
+-    })(request);
+-  } catch {
+-    return Response.json(
+-      { error: "policyUnavailable" },
+-      { status: 503, headers: { "Cache-Control": "private, no-store" } },
+-    );
+-  }
+ }
+ export async function authorizeModel(userId: string, route: ModelRoute) {
+   return authorizeModelRequest(policyStore(), userId, route);
+diff --git a/app/api/policy/route.ts b/app/api/policy/route.ts
+--- a/app/api/policy/route.ts
++++ b/app/api/policy/route.ts
+@@ -1,4 +1,9 @@
+-import { handlePolicy } from "@/lib/policy/runtime";
++/** Community runtime retains all policy execution enforcement. The enterprise
++ * management transport is supplied only by an explicit composition override. */
+ export const dynamic = "force-dynamic";
+-export const GET = handlePolicy;
+-export const POST = handlePolicy;
++function unavailable() {
++  return Response.json({error:"policyManagementUnavailable"}, {status:503,
++    headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
++}
++export const GET=unavailable;
++export const POST=unavailable;
+diff --git a/lib/business/core-policy-admin.ts b/lib/business/core-policy-admin.ts
+new file mode 100644
+--- /dev/null
++++ b/lib/business/core-policy-admin.ts
+@@ -0,0 +1,21 @@
++import type { z } from 'zod';
++/** Public-core-owned boundary. No SQL pool, signing private key or execution
++ * bypass is exposed to the enterprise management adapter. */
++export interface CorePolicyAdmin {
++  readonly signer: { readonly keyId: string; readonly publicKey: string };
++  read(workspaceId: string, actorId: string, version?: number): Promise<unknown>;
++  current(actorId: string, workspaceId: string): Promise<readonly { signed: unknown }[]>;
++  publish(workspaceId: string, actorId: string, expectedVersion: number,
++    document?: unknown, rollbackOf?: number): Promise<unknown>;
++}
++export interface CorePolicyContract {
++  readonly documentSchema: z.ZodType;
++  readonly PolicyError: new (code: string, status: number) => Error & {code: string; status: number};
++}
++export interface CorePolicyAdminRuntime {
++  admin(): CorePolicyAdmin;
++  readonly contract: CorePolicyContract;
++  readonly origin: string;
++  /** Must resolve a real browser session without cookie-cache authorization. */
++  authenticate(request: Request): Promise<{userId: string} | null>;
++}
+diff --git a/lib/policy/admin-runtime.ts b/lib/policy/admin-runtime.ts
+new file mode 100644
+--- /dev/null
++++ b/lib/policy/admin-runtime.ts
+@@ -0,0 +1,27 @@
++import "server-only";
++import { auth } from "@/lib/auth";
++import { appOrigin } from "@/lib/mcp/resource";
++import { policyStore } from "./runtime";
++import { documentSchema, PolicyError } from "./contract";
++import type { CorePolicyAdminRuntime } from "../business/core-policy-admin";
++/** Public capability facade: never expose pool or private signing material. */
++export function corePolicyAdminRuntime(): CorePolicyAdminRuntime {
++  return {
++    origin: appOrigin ?? "",
++    contract: { documentSchema, PolicyError },
++    authenticate: async request => {
++      const session = await auth.api.getSession({headers: request.headers, query:{disableCookieCache:true}});
++      return session ? {userId:session.user.id} : null;
++    },
++    admin: () => {
++      const store=policyStore();
++      return {
++        signer: Object.freeze({keyId:store.signer.keyId,publicKey:store.signer.publicKey}),
++        read: (workspace,actor,version)=>store.read(workspace,actor,version),
++        current: (actor,workspace)=>store.current(actor,workspace),
++        publish: (workspace,actor,version,document,rollback)=>store.publish(workspace,actor,version,
++          document===undefined ? undefined : documentSchema.parse(document),rollback),
++      };
++    },
++  };
++}
+diff --git a/lib/policy/postgres.test.ts b/lib/policy/postgres.test.ts
+--- a/lib/policy/postgres.test.ts
++++ b/lib/policy/postgres.test.ts
+@@ -11,9 +11,8 @@
+ import { transaction, verifyAudit } from "../audit/store";
+ import { PolicyStore } from "./store";
+ import { policySigner } from "./signing";
+-import { policyHttp } from "./http";
+ import { AGENT_ROUTE, authorizeModelRequest } from "./model";
+-import type { PolicyDocument } from "./contract";
++import { PolicyError, type PolicyDocument } from "./contract";
+ const target = process.env.POLICY_WORKSPACE_TEST_URL;
+ const guarded = () => {
+   const url = new URL(target ?? "");
+@@ -25,7 +24,7 @@
+   return url.toString();
+ };
+ test(
+-  "real PostgreSQL policy transactions, HTTP contract, tenant isolation, revocation and failure",
++  "real PostgreSQL core policy transactions, tenant isolation, revocation and failure",
+   { skip: !target && process.env.REQUIRE_POLICY_DB !== "1" },
+   async (t) => {
+     const pool = new Pool({ connectionString: guarded(), max: 16 });
+@@ -50,25 +49,6 @@
+         },
+       ],
+     });
+-    const request = (
+-      method = "GET",
+-      input?: unknown,
+-      cookie = "admin",
+-      origin = "http://policy.invalid",
+-      id = workspaceId,
+-    ) =>
+-      new Request(`http://policy.invalid/api/policy?workspaceId=${id}`, {
+-        method,
+-        headers: { cookie, origin, "content-type": "application/json" },
+-        ...(input !== undefined ? { body: JSON.stringify(input) } : {}),
+-      });
+-    const http = policyHttp({
+-      store,
+-      origin: "http://policy.invalid",
+-      authenticate: async (req) => ({
+-        userId: req.headers.get("cookie") === "member" ? member : userId,
+-      }),
+-    });
+     try {
+       const migration = readFileSync(
+         "drizzle/20261025180000_organization_policy.sql",
+@@ -84,52 +64,24 @@
+         `INSERT INTO mikka_workspace_members("workspaceId","userId",name,email,role) VALUES($1,$2,'Synthetic','policy@example.invalid','admin'),($3,$2,'Synthetic','policy@example.invalid','admin'),($1,$4,'Synthetic','member@example.invalid','member')`,
+         [workspaceId, userId, other, member],
+       );
+-      await t.test(
+-        "no policy is explicitly unmanaged; missing origin, bearer and member writes refused",
+-        async () => {
+-          assert.equal((await store.current(userId)).length, 0);
+-          assert.equal(
+-            (
+-              await http(
+-                request(
+-                  "POST",
+-                  { expectedVersion: 0, document: document() },
+-                  "admin",
+-                  "http://evil.invalid",
+-                ),
+-              )
+-            ).status,
+-            403,
+-          );
+-          assert.equal(
+-            (
+-              await http(
+-                request(
+-                  "POST",
+-                  { expectedVersion: 0, document: document() },
+-                  "member",
+-                ),
+-              )
+-            ).status,
+-            403,
+-          );
+-          const bearer = request();
+-          bearer.headers.set("authorization", "Bearer synthetic");
+-          assert.equal((await http(bearer)).status, 401);
+-        },
+-      );
++      await t.test("no policy is explicitly unmanaged; member publication refused", async () => {
++        assert.equal((await store.current(userId)).length,0);
++        await assert.rejects(store.publish(workspaceId,member,0,document()), /policyAccessDenied/);
++      });
+       await t.test(
+         "twelve concurrent publishers produce one winner, one version and one audit event",
+         async () => {
+-          const replies = await Promise.all(
+-            Array.from({ length: 12 }, () =>
+-              http(
+-                request("POST", { expectedVersion: 0, document: document() }),
+-              ),
+-            ),
+-          );
+-          assert.equal(replies.filter((r) => r.status === 201).length, 1);
+-          assert.equal(replies.filter((r) => r.status === 409).length, 11);
++          const replies = await Promise.allSettled(
++            Array.from({length:12},()=>store.publish(workspaceId,userId,0,document())),
++          );
++          assert.equal(replies.filter(r=>r.status==='fulfilled').length,1);
++          const rejected=replies.filter(r=>r.status==='rejected');
++          assert.equal(rejected.length,11);
++          for (const result of rejected) {
++            assert.ok(result.reason instanceof PolicyError);
++            assert.equal(result.reason.code,'policyVersionConflict');
++            assert.equal(result.reason.status,409);
++          }
+           assert.equal(
+             (
+               await pool.query(
+@@ -148,7 +100,7 @@
+             ).rows[0].count,
+             "1",
+           );
+-          assert.equal((await http(request())).status, 200);
++          assert.ok(await store.read(workspaceId,userId));
+           await assert.rejects(
+             authorizeModelRequest(store, userId, AGENT_ROUTE),
+             /policyBudgetUnavailable/,
+@@ -274,14 +226,7 @@
+             `CREATE FUNCTION policy_test_audit_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event->>'action'='policy.published' THEN RAISE EXCEPTION 'synthetic audit unavailable'; END IF; RETURN NEW; END $$; CREATE TRIGGER policy_test_audit_fail BEFORE INSERT ON security_audit_events FOR EACH ROW EXECUTE FUNCTION policy_test_audit_fail()`,
+           );
+           try {
+-            assert.equal(
+-              (
+-                await http(
+-                  request("POST", { expectedVersion: 3, document: document() }),
+-                )
+-              ).status,
+-              503,
+-            );
++            await assert.rejects(store.publish(workspaceId,userId,3,document()), /synthetic audit unavailable/);
+             assert.equal(
+               (await store.read(workspaceId, userId))?.payload.version,
+               3,
+@@ -299,18 +244,7 @@
+             store.read(workspaceId, member),
+             /policyAccessDenied/,
+           );
+-          assert.equal(
+-            (
+-              await http(
+-                request(
+-                  "POST",
+-                  { expectedVersion: 3, document: document() },
+-                  "member",
+-                ),
+-              )
+-            ).status,
+-            403,
+-          );
++          await assert.rejects(store.publish(workspaceId,member,3,document()), /policyAccessDenied/);
+           const verified = await transaction(pool, (tx) =>
+             verifyAudit(tx, workspaceId),
+           );
+@@ -542,7 +476,7 @@
+         },
+       );
+       await t.test(
+-        "database unavailable returns 503 with no implicit unmanaged fallback",
++        "database unavailable rejects with no implicit unmanaged fallback",
+         async () => {
+           const unavailable = new Pool({
+             connectionString:
+@@ -550,12 +484,9 @@
+             connectionTimeoutMillis: 200,
+           });
+           try {
+-            const handle = policyHttp({
+-              store: new PolicyStore(unavailable, store.signer),
+-              origin: "http://policy.invalid",
+-              authenticate: async () => ({ userId }),
+-            });
+-            assert.equal((await handle(request())).status, 503);
++            const unavailableStore=new PolicyStore(unavailable,store.signer);
++            await assert.rejects(unavailableStore.read(workspaceId,userId));
++            await assert.rejects(unavailableStore.current(userId,workspaceId));
+           } finally {
+             await unavailable.end();
+           }
