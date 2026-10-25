@@ -1,0 +1,51 @@
+{
+  "sourcePR": 264,
+  "publicBase": "721bbf3615f7b9a3672c149112382dac75c72cb8",
+  "reviewedSafetyHead": "a3ed50866bd8b9c76223192f1f9a1220ead0b0bc",
+  "reconstructedTree": "e879c7b1193385d728f8f0ef161732e78584d3bb",
+  "evidenceCommit": "2050898eaa6fb45ede0a051edfc11fede440848e",
+  "sourceAuthor": {
+    "name": "Zhixuan",
+    "email": "alexjiang20232024@gmail.com",
+    "date": "2026-10-25T19:05:40Z"
+  },
+  "sourceCommitter": {
+    "name": "Zhixuan",
+    "email": "alexjiang20232024@gmail.com",
+    "date": "2026-10-25T19:05:40Z"
+  },
+  "files": [
+    {
+      "source": "lib/policy/http.ts",
+      "sourceBlob": "fe476e6edb4943e6451ba3a4178eb3db91abb445",
+      "target": "extensions/policy-admin/http.ts"
+    },
+    {
+      "source": "lib/policy/runtime.ts",
+      "sourceBlob": "acba5cad7a3e17aee7b5f6879f555067b5dd4ca4",
+      "target": "extensions/policy-admin/runtime.ts (handlePolicy composition only)"
+    },
+    {
+      "source": "app/api/policy/route.ts",
+      "sourceBlob": "d5fd03cf2aaaf5d05b0e2f5bcbfe4abb73bced6c",
+      "target": "extensions/policy-admin/app-route.ts (requires host binding)"
+    }
+  ],
+  "safetyPatch": {
+    "path": "patches/public-safety-candidate.patch",
+    "sha256": "edc50f8f78f8cf6b3e928d84679ecea6e3ed0bf9e3bcd9980f2b5d75ed2837f7"
+  },
+  "retainedPublic": [
+    "PolicyStore",
+    "member locks",
+    "CAS",
+    "signing private key",
+    "same-transaction audit",
+    "authorizeModel",
+    "authorizeWorkerClaim (a3ed508 repair)",
+    "workerPolicyInTransaction",
+    "tool/MCP authorization",
+    "leases",
+    "quota state machine"
+  ]
+}
