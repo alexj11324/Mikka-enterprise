@@ -1,0 +1,631 @@
+{
+  "sourcePR": "https://github.com/alexj11324/Mikka/pull/265",
+  "sourceHead": "50598846e592dbdb4b9419f96eb99b6cf5b9edbf",
+  "sourceBranch": "codex/215-tenant-quota-20261025",
+  "observedPRBase": "a1610e7cb411b0b676b8365df63c93986f205cbf",
+  "reconstructionBase": "40cbaff439dae444dd3f97729a7df450d7ec7b58",
+  "sourceTree": "0be61d1bc44e8d6e6b8d6f57c78d8fe8e4efe0d3",
+  "scope": "Complete inactive source PR preservation; no runtime installation or safety-core reclassification",
+  "sourcePreservation": "Original Mikka branch, commits, public discussion and history retained",
+  "verification": {
+    "orderedSeriesTree": "0be61d1bc44e8d6e6b8d6f57c78d8fe8e4efe0d3",
+    "netDiffTree": "0be61d1bc44e8d6e6b8d6f57c78d8fe8e4efe0d3",
+    "treesEqualSourceHead": true,
+    "functionalAcceptancePerformed": false
+  },
+  "changedFileCount": 47,
+  "commits": [
+    {
+      "sha": "88787cd0384f50863d7d737fd9c98703827b986f",
+      "parents": "40cbaff439dae444dd3f97729a7df450d7ec7b58",
+      "authorName": "codex",
+      "authorEmail": "codex@openai.com",
+      "authorDate": "2026-10-25T17:12:52Z",
+      "committerName": "codex",
+      "committerEmail": "codex@openai.com",
+      "committerDate": "2026-10-25T17:12:52Z",
+      "message": "Enforce tenant execution budgets and leases across backend entry points (#215)"
+    },
+    {
+      "sha": "91c67ef64ef329a1ac23e131cc02519e503f1582",
+      "parents": "88787cd0384f50863d7d737fd9c98703827b986f",
+      "authorName": "codex",
+      "authorEmail": "codex@openai.com",
+      "authorDate": "2026-10-25T17:17:29Z",
+      "committerName": "codex",
+      "committerEmail": "codex@openai.com",
+      "committerDate": "2026-10-25T17:17:29Z",
+      "message": "Verify operator caps and preserve quota identities through retries"
+    },
+    {
+      "sha": "01e946f2614f8bb462c2bb89269eaf3a691a8f45",
+      "parents": "91c67ef64ef329a1ac23e131cc02519e503f1582",
+      "authorName": "codex",
+      "authorEmail": "codex@openai.com",
+      "authorDate": "2026-10-25T17:25:25Z",
+      "committerName": "codex",
+      "committerEmail": "codex@openai.com",
+      "committerDate": "2026-10-25T17:25:25Z",
+      "message": "Enforce operator allocation lifetime and fixed rate windows"
+    },
+    {
+      "sha": "cf268d0618d96cc2ab8136afc9771776c7aa5654",
+      "parents": "01e946f2614f8bb462c2bb89269eaf3a691a8f45",
+      "authorName": "codex",
+      "authorEmail": "codex@openai.com",
+      "authorDate": "2026-10-25T17:35:29Z",
+      "committerName": "codex",
+      "committerEmail": "codex@openai.com",
+      "committerDate": "2026-10-25T17:35:29Z",
+      "message": "Retain acceptance startup failures and bound HTTP readiness probes"
+    },
+    {
+      "sha": "905fea22b77fb603171d140567ddcc22b64cfad8",
+      "parents": "cf268d0618d96cc2ab8136afc9771776c7aa5654",
+      "authorName": "codex",
+      "authorEmail": "codex@openai.com",
+      "authorDate": "2026-10-25T17:51:29Z",
+      "committerName": "codex",
+      "committerEmail": "codex@openai.com",
+      "committerDate": "2026-10-25T17:51:29Z",
+      "message": "Bound streamed quota policies and initialize real workspace test context"
+    },
+    {
+      "sha": "6166ae39387b043f25ce3ebade23cc2e7ae0c3df",
+      "parents": "905fea22b77fb603171d140567ddcc22b64cfad8",
+      "authorName": "Zhixuan",
+      "authorEmail": "alexjiang20232024@gmail.com",
+      "authorDate": "2026-10-25T18:46:36Z",
+      "committerName": "Zhixuan",
+      "committerEmail": "alexjiang20232024@gmail.com",
+      "committerDate": "2026-10-25T18:46:36Z",
+      "message": "Make daemon quota claims atomic and fence late Composio dispatch"
+    },
+    {
+      "sha": "50598846e592dbdb4b9419f96eb99b6cf5b9edbf",
+      "parents": "6166ae39387b043f25ce3ebade23cc2e7ae0c3df",
+      "authorName": "Zhixuan",
+      "authorEmail": "alexjiang20232024@gmail.com",
+      "authorDate": "2026-10-25T19:02:06Z",
+      "committerName": "Zhixuan",
+      "committerEmail": "alexjiang20232024@gmail.com",
+      "committerDate": "2026-10-25T19:02:06Z",
+      "message": "Recover proven unsent claims after expiry and cancel stalled SDK response bodies"
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/tenant-quota.yml",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "ff2be664fe432294d8290bb8fba1935826d5b895"
+      }
+    },
+    {
+      "path": ".github/workflows/ui-policy.yml",
+      "base": {
+        "mode": "100644",
+        "blob": "8bdf09eccb95c7560a873fe4d6fbe957a85d7280"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "563602e316744ec069bfc586916a939641a83e00"
+      }
+    },
+    {
+      "path": ".gitignore",
+      "base": {
+        "mode": "100644",
+        "blob": "b2557641c3675c4ee38fb2a232962acb3c1d3697"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "935458339f75f47457ce776b029d2406f823502d"
+      }
+    },
+    {
+      "path": "app/api/agent/route.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "f2522c259ffc3881370eb913765564d29bf40edc"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "24f951d39b6fe71721f8f1540c46b41b12489972"
+      }
+    },
+    {
+      "path": "app/api/coordinator/messages/route.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "69456327f01d3bea4badcc84d0b2320bc93412ed"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "181eace500fe235373cf13aab216bebf7b0e0298"
+      }
+    },
+    {
+      "path": "app/api/workspaces/[workspaceId]/quota/route.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "b1ff1e6024c0fa2e9859170188791926e9ae6b42"
+      }
+    },
+    {
+      "path": "app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "7ab81dda64e8db98af94ca84f86616272ef35e30"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "8e0062d0c3ab642c1124fadf526ffd170baa2545"
+      }
+    },
+    {
+      "path": "app/v1/runs/[runId]/complete/route.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "c6e0907bb25575ba898a1705c54d77dc236d1f2c"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "3c458f967746617be9f9821e7650fc724fd1cbb1"
+      }
+    },
+    {
+      "path": "docs/backend/215-tenant-quotas.md",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "e58d6b22dad5ec257ad79ed8ea35ba2a417b7cbf"
+      }
+    },
+    {
+      "path": "drizzle/20261025165100_tenant_quotas.sql",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "6ae2154a87fdb3cf28ec13064ec80917e364e084"
+      }
+    },
+    {
+      "path": "lib/action-error.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "d6ff87fe4c5840a22077689d0a5ae3e6b426e76c"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "7ae7d54f441d8de40a2b109a01759b5816493aa0"
+      }
+    },
+    {
+      "path": "lib/agent-runs.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "31b4893b52ad99c4d69349a9eaccc9ae30eac68a"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "7f22d1c32c69f2acbf7cee70f7597fbbd926bcef"
+      }
+    },
+    {
+      "path": "lib/agent-web-tools.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "ebcf35877054e7bfb7ae034d36f7637c22db3e14"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "df9d57fdbc89d23f1fe23708c4cc6ef292b8f2a2"
+      }
+    },
+    {
+      "path": "lib/composio-actions.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "2751b8e59a3dfb333b578a46bc66d390baabc34f"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "a4cacc0cc7bdfdcebf73f0042f12270183ea86f1"
+      }
+    },
+    {
+      "path": "lib/composio-pagination.test.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "33ad731f8f04127f1c98d0aea925b65b2e465c50"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "6c25a686b67fa9b81a6541af6f4c29236b0c3274"
+      }
+    },
+    {
+      "path": "lib/composio-pagination.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "fc2f805c5132d0c9a667cc3f443a10287066ffce"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "a606b5609fa167cf32f8e5a3f91d542509a56e41"
+      }
+    },
+    {
+      "path": "lib/composio.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "8848f4d8525f856457dab9dfb53918002967a2bc"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "0339efb49c0d973673da796c5846dea8e85239ce"
+      }
+    },
+    {
+      "path": "lib/coordinator-event-store.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "bdc0c18b6e429eb5b16846be9b13e3299d42b688"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "6041de904a9ebbb8b35fc01d2e3ffdcfac18fc3d"
+      }
+    },
+    {
+      "path": "lib/coordinator/decide.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "f61968b587e1765994959483b35e00d064cd3991"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "a0e4fc18fa59aa4c990f79f384e1233a502192c1"
+      }
+    },
+    {
+      "path": "lib/coordinator/wake.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "d4290fca35871b7e09df5bf5e0afbbaeb6694432"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "bd1d89b698df249d3997c1d514917547a73c152a"
+      }
+    },
+    {
+      "path": "lib/db/schema.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "1ff1659e92dec157515fb6aa61be9a8e291d018b"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "6be568930f8729b5b23981e9541871571a92146c"
+      }
+    },
+    {
+      "path": "lib/issue-scope-judge.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "fac11826c035785a11919ef3c20433eed5c817f1"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "4c79730cc937d6421610a6538f14cf0cd56c3e5a"
+      }
+    },
+    {
+      "path": "lib/pending-actions.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "27263d2d2a2ebf2090a9d518208cadfa2b04d482"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "6fbe9543c7bdf13c0cb8103ef5e821c8dcf174db"
+      }
+    },
+    {
+      "path": "lib/quota/composio.test.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "da837c314e64991313281e69ed6990a542f81bd3"
+      }
+    },
+    {
+      "path": "lib/quota/composio.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "6306485d4f02c95f2edfbb0646c865d26c5bce33"
+      }
+    },
+    {
+      "path": "lib/quota/config.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "7e3a1d34945dd7d1a355c0bed6892f59b3c5903f"
+      }
+    },
+    {
+      "path": "lib/quota/errors.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "51fef931d9dbbfc6004031ac18ddbdb84ba9338f"
+      }
+    },
+    {
+      "path": "lib/quota/restart-worker.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "11543795506311658371ea4c62e7df11a6015295"
+      }
+    },
+    {
+      "path": "lib/quota/runtime.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "1ef00f4c49a716081ec32fedc2e084f248f701eb"
+      }
+    },
+    {
+      "path": "lib/quota/store.test.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "e504defcc52fd943ef89de0d97fc9ee2fe202b9f"
+      }
+    },
+    {
+      "path": "lib/quota/store.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "8a3cadf811c98afd3586087f83b61f9d8ad782ca"
+      }
+    },
+    {
+      "path": "lib/quota/workflow-model.ts",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "676f1c2460ff1c1e9b16e769214b30bb6463fc08"
+      }
+    },
+    {
+      "path": "lib/run-leases.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "cbd569ed8cddaf01b1c44792ced65403ff40e5cf"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "75a6a72d39997151a900a74eb93f368cfa4fcc86"
+      }
+    },
+    {
+      "path": "lib/suggestions/store.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "f404da9e4d42fa89f59b2677a3474b854c0b2955"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "7e396d4fdb71dbeccf4c450bde9cc7bebd9930d6"
+      }
+    },
+    {
+      "path": "package.json",
+      "base": {
+        "mode": "100644",
+        "blob": "c0583e81b7ce062b6b91626185d84900809d26b9"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "93695626ebbbf2a257d956051260c89842a1c677"
+      }
+    },
+    {
+      "path": "patches/@composio__client@2.0.0-rc.19.patch",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "f4b0a276e30840e3de07f4ab5b9d7e79d553041a"
+      }
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "base": {
+        "mode": "100644",
+        "blob": "e6225181c665aa0f9470fcb0797f30780b1a7808"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "b175df6cbcd82cf47a40fd792fd7c627ae91cd2e"
+      }
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "base": {
+        "mode": "100644",
+        "blob": "1a168ab8193a3f95c93a02b2b70778ea7d5f4708"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "828826420f52ecba151cf2f076f1b3e4c2c49d7f"
+      }
+    },
+    {
+      "path": "tests/agent-web-tools.test.mjs",
+      "base": {
+        "mode": "100644",
+        "blob": "3e6961c47e40ff11bfcc30455cdef42570d0796c"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "7c48a37e6b5bb5f352472db022883e1f6b26d97b"
+      }
+    },
+    {
+      "path": "tests/e2e/fixtures.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "ebe589c11560fb14515fec5c27bba1d6996cbc4c"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "6e513ea36f43b116ae6b1ddc787d8386832bbb1b"
+      }
+    },
+    {
+      "path": "tests/e2e/workspace.spec.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "c320b9a1eab2684e5bd47131be12d5bb6e8689fd"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "1374741119deea712699b1c92f5121a95e44591d"
+      }
+    },
+    {
+      "path": "tests/fixtures/quota-http-preload.mjs",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "3c48b62324479a50ccb038c5de7049ac0f841da5"
+      }
+    },
+    {
+      "path": "tests/fixtures/quota-network-guard.mjs",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "84fcf4bf1d86ab41a0a1815d014a02d7940ed8ad"
+      }
+    },
+    {
+      "path": "tests/quota-api.test.mjs",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "30ec3ab3d8d39a10d16bbbf999dac4641b4b3486"
+      }
+    },
+    {
+      "path": "tests/quota-claim-fault.test.mjs",
+      "base": null,
+      "head": {
+        "mode": "100644",
+        "blob": "18e2b4fbcf09c4a1b3460acdac641d3627ef5f89"
+      }
+    },
+    {
+      "path": "workflows/coordinator/steps.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "4155430735c3f7482ad81b103e03cbab2e502480"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "0311a9901489c392584d7b157b675a8ada307c57"
+      }
+    },
+    {
+      "path": "workflows/coordinator/workflow.ts",
+      "base": {
+        "mode": "100644",
+        "blob": "fed5e1bb80232f1504d57026fceab2785e65b9f4"
+      },
+      "head": {
+        "mode": "100644",
+        "blob": "a7bd0e23dfd4d686249eac45693b6be3843c9325"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "README.md",
+      "bytes": 3915,
+      "sha256": "f6db3f18175843d54dccc8069ef4fe77bcde21fc4eee812b7c6d0d8635f4d98f"
+    },
+    {
+      "path": "candidate.diff",
+      "bytes": 180399,
+      "sha256": "5b89adc665ac712fbbc19d364b4823cf6cddd000cedcc9599422c3c2202c9798"
+    },
+    {
+      "path": "original-discussion.json",
+      "bytes": 1655,
+      "sha256": "0600f96b931b31b2396f4388fb22ef72feee3f5e8668c6d31caa6064f7fdfd9f"
+    },
+    {
+      "path": "original-pr-description.md",
+      "bytes": 8914,
+      "sha256": "ed80b71548e47f263a770140568d28643e7ef7484881d680a272dead07f63823"
+    },
+    {
+      "path": "original-pr.json",
+      "bytes": 10132,
+      "sha256": "ff0869c0175a328fce1e5c4cb4d4d9e56881898804abe64be20d1281f41de748"
+    },
+    {
+      "path": "series/0001-Enforce-tenant-execution-budgets-and-leases-across-b.patch",
+      "bytes": 111732,
+      "sha256": "83f994ec10b5ce9097cc9d8aa82290207b322b56d19ae07735c193e4b069fff3"
+    },
+    {
+      "path": "series/0002-Verify-operator-caps-and-preserve-quota-identities-t.patch",
+      "bytes": 16851,
+      "sha256": "26dcf95b3a7ad4c476256094513c587ed12cebf590af5af4ae26bd3226b8162d"
+    },
+    {
+      "path": "series/0003-Enforce-operator-allocation-lifetime-and-fixed-rate-.patch",
+      "bytes": 25104,
+      "sha256": "5469b5f25a6f111c5c1d515feeb48b4afddc86a79c71a79431797a6c1f4f1e07"
+    },
+    {
+      "path": "series/0004-Retain-acceptance-startup-failures-and-bound-HTTP-re.patch",
+      "bytes": 6470,
+      "sha256": "60db8ae614768bc4ef12359f105333f82b0e22bf393daf19b13bcf45c034272f"
+    },
+    {
+      "path": "series/0005-Bound-streamed-quota-policies-and-initialize-real-wo.patch",
+      "bytes": 7615,
+      "sha256": "31c042ba2b8a0bd502d163e438d91db3ae60588c3b9a575d24658f2f9e50a459"
+    },
+    {
+      "path": "series/0006-Make-daemon-quota-claims-atomic-and-fence-late-Compo.patch",
+      "bytes": 62409,
+      "sha256": "7d0d8436d608e9567c9fe4b8e41bb1d29381d96a3d0fee87d755d5189f578643"
+    },
+    {
+      "path": "series/0007-Recover-proven-unsent-claims-after-expiry-and-cancel.patch",
+      "bytes": 38243,
+      "sha256": "443e29a9c4434e8604feba4509ade794d31bc2beed7e33a4f5c841ef15d983fb"
+    }
+  ],
+  "discussion": "https://github.com/alexj11324/Mikka/pull/265#discussion_bucket",
+  "checks": "https://github.com/alexj11324/Mikka/pull/265/checks",
+  "knownEvidenceLinks": [
+    "https://github.com/alexj11324/Mikka/actions/runs/40224079921",
+    "https://github.com/alexj11324/Mikka/actions/runs/40224079959",
+    "https://github.com/alexj11324/Mikka/pull/265#issuecomment-6433521655"
+  ],
+  "privateEvidenceNotCopied": "/workspace/evidence-215/"
+}

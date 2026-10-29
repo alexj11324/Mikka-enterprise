@@ -1,0 +1,2559 @@
+diff --git a/.github/workflows/tenant-quota.yml b/.github/workflows/tenant-quota.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..ff2be664fe432294d8290bb8fba1935826d5b895
+--- /dev/null
++++ b/.github/workflows/tenant-quota.yml
+@@ -0,0 +1,52 @@
++name: Tenant quota PostgreSQL regression
++on:
++  push:
++    branches: ['codex/215-*']
++  pull_request:
++    paths: ['lib/quota/**', 'drizzle/*tenant_quotas.sql', 'app/api/workspaces/**', '.github/workflows/tenant-quota.yml']
++permissions:
++  contents: read
++jobs:
++  quota-postgres:
++    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
++    runs-on: ubuntu-latest
++    timeout-minutes: 20
++    services:
++      postgres:
++        image: postgres:17
++        env:
++          POSTGRES_USER: quota
++          POSTGRES_PASSWORD: isolated-test-only
++          POSTGRES_DB: mikka_quota_e2e
++        ports: ['5432:5432']
++        options: --health-cmd "pg_isready -U quota -d mikka_quota_e2e" --health-interval 5s --health-timeout 5s --health-retries 10
++    env:
++      QUOTA_TEST_DATABASE_URL: postgresql://quota:isolated-test-only@127.0.0.1:5432/mikka_quota_e2e
++      E2E_DATABASE_URL: postgresql://quota:isolated-test-only@127.0.0.1:5432/mikka_quota_e2e
++      MIKKA_DATABASE_URL: postgresql://quota:isolated-test-only@127.0.0.1:5432/mikka_quota_e2e
++      DATABASE_URL: postgresql://quota:isolated-test-only@127.0.0.1:5432/mikka_quota_e2e
++      BETTER_AUTH_URL: http://localhost:3215
++      NEXT_TELEMETRY_DISABLED: '1'
++    steps:
++      - uses: actions/checkout@v4
++      - uses: pnpm/action-setup@v4
++        with: { version: 10.34.3 }
++      - uses: actions/setup-node@v4
++        with: { node-version: 24, cache: pnpm }
++      - run: pnpm install --frozen-lockfile
++      - run: node -e "console.log('BETTER_AUTH_SECRET=' + require('node:crypto').randomBytes(32).toString('hex'))" >> "$GITHUB_ENV"
++      - run: node --import tsx --test lib/quota/store.test.ts
++      - run: node --import tsx --test lib/quota/composio.test.ts
++      - run: MIGRATE=1 pnpm migrate
++      - run: pnpm build
++      - run: node --import tsx --test tests/quota-api.test.mjs
++      - run: node --import tsx --test tests/quota-claim-fault.test.mjs
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: tenant-quota-evidence
++          path: |
++            quota-api-evidence.json
++            quota-claim-fault-evidence.json
++            quota-composio-evidence.json
++          if-no-files-found: ignore
+diff --git a/.github/workflows/ui-policy.yml b/.github/workflows/ui-policy.yml
+index 8bdf09eccb95c7560a873fe4d6fbe957a85d7280..563602e316744ec069bfc586916a939641a83e00 100644
+--- a/.github/workflows/ui-policy.yml
++++ b/.github/workflows/ui-policy.yml
+@@ -23,7 +23,7 @@ concurrency:
+ jobs:
+   cloud-secret-access:
+     name: Cloud credential access (OIDC)
+-    if: github.event_name == 'push' && github.repository == 'alexj11324/Mikka'
++    if: github.event_name == 'push' && github.repository == 'alexj11324/Mikka' && !startsWith(github.ref, 'refs/heads/codex/215-')
+     runs-on: ubuntu-latest
+     timeout-minutes: 3
+     permissions:
+@@ -162,6 +162,8 @@ jobs:
+           MIGRATION_BOOTSTRAP_CI: '1'
+       - name: Group conversation API and migrations (temporary Postgres 17 only)
+         run: pnpm test:groups
++      - name: Migrate the isolated application database, including backend-only quota tables
++        run: MIGRATE=1 pnpm migrate
+       - run: pnpm test:e2e:setup
+       - name: Verify legacy workspace migration and idempotency
+         run: node --test tests/workspace-migration.test.mjs
+diff --git a/.gitignore b/.gitignore
+index b2557641c3675c4ee38fb2a232962acb3c1d3697..935458339f75f47457ce776b029d2406f823502d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -40,3 +40,9 @@ next-env.d.ts
+ # Workflow SDK local world
+ /.workflow-data/
+ /.swc
++
++# Isolated quota regression output
++quota-api-evidence.json
++quota-claim-fault-evidence.json
++quota-composio-evidence.json
++.quota-node-modules/
+diff --git a/app/api/agent/route.ts b/app/api/agent/route.ts
+index f2522c259ffc3881370eb913765564d29bf40edc..24f951d39b6fe71721f8f1540c46b41b12489972 100644
+--- a/app/api/agent/route.ts
++++ b/app/api/agent/route.ts
+@@ -10,6 +10,8 @@ import systemPrompt from '@/lib/agent-system-prompt.json'
+ import { validateAgentStream } from '@/lib/agent-fetch'
+ import { persistAgentStream } from '@/lib/agent-history'
+ import { AgentStoreError, beginAgentTurn, saveAgentTurn } from '@/lib/agent-store'
++import { beginQuota, quotaFailure, tenantQuotas, withTenantQuota } from '@/lib/quota/runtime'
++import { QuotaError, quotaResponse } from '@/lib/quota/errors'
+ 
+ export const maxDuration = 300
+ 
+@@ -86,6 +88,16 @@ export async function POST(request: Request) {
+       status: error instanceof AgentStoreError ? error.status : 503, headers: errorHeaders,
+     })
+   }
++  let quota: Awaited<ReturnType<typeof beginQuota>>
++  try {
++    // The existing explicit retry/regenerate action is a new charged attempt.
++    // Ordinary transport replays retain the original logical turn key.
++    const quotaKey = parsed.data.retry ? `agent-retry:${turnId}:${turn.attemptId}` : `agent:${turnId}`
++    quota = await beginQuota({ ownerId: session.user.id, key: quotaKey, resource: 'agent.turn', binding: { sessionId, turnId, prompt: parsed.data.prompt } })
++  } catch (error) {
++    await saveAgentTurn(session.user.id, sessionId, turnId, turn.attemptId, { status: 'failed', completion: '', error: error instanceof QuotaError ? error.code : 'quotaUnavailable' })
++    return error instanceof QuotaError ? quotaResponse(error) : Response.json({ error: 'quotaUnavailable' }, { status: 503, headers: errorHeaders })
++  }
+   const messages: { role: 'user' | 'assistant'; content: string }[] = []
+   let historySize = 0
+   for (const previous of [...turn.history].reverse()) {
+@@ -101,21 +113,28 @@ export async function POST(request: Request) {
+     baseURL: 'https://opencode.ai/zen/go/v1',
+     headers: { 'User-Agent': 'Mikka-UI-Agent/1.0', 'x-opencode-session': sessionId },
+   })
++  let modelAcceptedWork = false
+   const result = streamText({
+     model: opencode('deepseek-v4.1-flash'),
+     providerOptions: { opencode: { reasoningEffort: 'medium' } },
+     system: `${systemPrompt}\n\n${agentWebInstructions()}`,
+     messages,
+     tools: {
+-      ...createAgentWebTools({ signal: request.signal }),
++      ...createAgentWebTools({ signal: request.signal, admit: (operation, input, execute) => withTenantQuota(session.user.id, 'gateway.web', { operation, input }, execute) }),
+       ...createComposioAITools((action, input) => runComposioAction(session.user.id, action, input)),
+     },
+     stopWhen: isStepCount(5),
+     prepareStep: ({ stepNumber }) => stepNumber >= 4 ? { toolChoice: 'none' } : {},
+-    maxRetries: 1,
++    maxRetries: 0,
+     timeout: { totalMs: 270000, firstChunkMs: 120000, chunkMs: 90000 },
+     abortSignal: request.signal,
+-    onError: ({ error }) => {
++    onChunk: ({ chunk }) => {
++      if (['text-delta', 'reasoning-delta', 'tool-call', 'tool-result'].includes(chunk.type)) modelAcceptedWork = true
++    },
++    onStepEnd: () => { modelAcceptedWork = true },
++    onError: async ({ error }) => {
++      const failure = quotaFailure(error)
++      await tenantQuotas.finish(session.user.id, quota.id, modelAcceptedWork ? 'uncertain' : failure.outcome, undefined, failure.retryAfter)
+       if (!request.signal.aborted) console.error('Agent generation failed:', agentErrorMessage(error))
+     },
+   })
+@@ -128,6 +147,9 @@ export async function POST(request: Request) {
+       stream: result.stream,
+       sendReasoning: false,
+       onError: agentErrorMessage,
+-    }).pipeThrough(validateAgentStream()), checkpoint => saveAgentTurn(session.user.id, sessionId, turnId, turn.attemptId, checkpoint), request.signal),
++    }).pipeThrough(validateAgentStream()), async checkpoint => {
++      await saveAgentTurn(session.user.id, sessionId, turnId, turn.attemptId, checkpoint)
++      if (checkpoint.status !== 'pending') await tenantQuotas.finish(session.user.id, quota.id, checkpoint.status === 'complete' ? 'settled' : 'uncertain')
++    }, request.signal),
+   })
+ }
+diff --git a/app/api/coordinator/messages/route.ts b/app/api/coordinator/messages/route.ts
+index 69456327f01d3bea4badcc84d0b2320bc93412ed..181eace500fe235373cf13aab216bebf7b0e0298 100644
+--- a/app/api/coordinator/messages/route.ts
++++ b/app/api/coordinator/messages/route.ts
+@@ -6,6 +6,7 @@ import { recordCoordinatorEvent } from '@/lib/coordinator-event-store'
+ import { userMessageEvent } from '@/lib/coordinator-events'
+ import { chatView } from '@/lib/coordinator/store'
+ import { coordinatorEnabled, wakeCoordinator } from '@/lib/coordinator/wake'
++import { QuotaError, quotaResponse } from '@/lib/quota/errors'
+ 
+ export const dynamic = 'force-dynamic'
+ 
+@@ -27,7 +28,11 @@ export async function POST(request: Request) {
+   const parsed = z.object({ text: z.string().trim().min(1).max(10_000) }).safeParse(await request.json().catch(() => null))
+   if (!parsed.success) return NextResponse.json({ error: 'messageRequired' }, { status: 400 })
+   const userId = session.user.id
+-  await recordCoordinatorEvent(db, userMessageEvent(userId, parsed.data.text))
++  try { await recordCoordinatorEvent(db, userMessageEvent(userId, parsed.data.text)) }
++  catch (error) {
++    if (error instanceof QuotaError) return quotaResponse(error)
++    throw error
++  }
+   after(() => wakeCoordinator(userId))
+   return NextResponse.json({ queued: true, enabled: coordinatorEnabled() }, { status: 202 })
+ }
+diff --git a/app/api/workspaces/[workspaceId]/quota/route.ts b/app/api/workspaces/[workspaceId]/quota/route.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..b1ff1e6024c0fa2e9859170188791926e9ae6b42
+--- /dev/null
++++ b/app/api/workspaces/[workspaceId]/quota/route.ts
+@@ -0,0 +1,88 @@
++import { and, eq, inArray } from 'drizzle-orm'
++import { z } from 'zod'
++import { auth } from '@/lib/auth'
++import { pool } from '@/lib/db'
++import { workspaceDb } from '@/lib/workspace-db'
++import { workspaceMembers } from '@/lib/db/workspace-schema'
++import { requireWorkspace, WorkspaceError } from '@/lib/workspace-access'
++import { configureQuota, quotaPolicySchema } from '@/lib/quota/config'
++import { QuotaError, quotaResponse } from '@/lib/quota/errors'
++
++export const dynamic = 'force-dynamic'
++type Context = { params: Promise<{ workspaceId: string }> }
++
++async function policyBody(request: Request): Promise<string | Response> {
++  if (Number(request.headers.get('content-length')) > 100000) return Response.json({ error: 'policyTooLarge' }, { status: 413 })
++  const reader = request.body?.getReader()
++  if (!reader) return ''
++  const decoder = new TextDecoder()
++  let size = 0, text = ''
++  try {
++    while (true) {
++      const { value, done } = await reader.read()
++      if (done) break
++      size += value.byteLength
++      if (size > 100000) {
++        await reader.cancel()
++        return Response.json({ error: 'policyTooLarge' }, { status: 413 })
++      }
++      text += decoder.decode(value, { stream: true })
++    }
++    return text + decoder.decode()
++  } catch { return Response.json({ error: 'invalidQuotaPolicy' }, { status: 400 }) }
++  finally { reader.releaseLock() }
++}
++
++export async function PUT(request: Request, { params }: Context) {
++  const session = await auth.api.getSession({ headers: request.headers })
++  if (!session?.user) return Response.json({ error: 'authRequired' }, { status: 401 })
++  if (request.headers.get('sec-fetch-site') === 'cross-site' || request.headers.get('origin') !== new URL(request.url).origin) return Response.json({ error: 'originDenied' }, { status: 403 })
++  const { workspaceId } = await params
++  if (!z.uuid().safeParse(workspaceId).success) return Response.json({ error: 'invalidWorkspace' }, { status: 400 })
++  const text = await policyBody(request)
++  if (text instanceof Response) return text
++  const policy = quotaPolicySchema.safeParse((() => { try { return JSON.parse(text) } catch { return null } })())
++  if (!policy.success) return Response.json({ error: 'invalidQuotaPolicy' }, { status: 400 })
++  try {
++    await workspaceDb.transaction(async tx => {
++      await requireWorkspace(tx, workspaceId, session.user.id, true)
++      // Locks remain held through the policy write, so a concurrent suspension
++      // cannot pass on a stale directory result while adding a binding.
++      const members = await tx.select({ id: workspaceMembers.userId }).from(workspaceMembers)
++        .where(and(eq(workspaceMembers.workspaceId, workspaceId), inArray(workspaceMembers.userId, policy.data.owners), eq(workspaceMembers.status, 'active'))).for('update')
++      if (new Set(members.map(m => m.id)).size !== new Set(policy.data.owners).size) throw new QuotaError('quotaAccessDenied', 403)
++      await configureQuota(pool, workspaceId, session.user.id, policy.data)
++    })
++    return Response.json({ configured: true, unit: 'admission_unit' }, { headers: { 'Cache-Control': 'private, no-store' } })
++  } catch (error) {
++    if (error instanceof WorkspaceError) return Response.json({ error: error.code }, { status: 403 })
++    return quotaResponse(error)
++  }
++}
++
++export async function GET(request: Request, { params }: Context) {
++  const session = await auth.api.getSession({ headers: request.headers })
++  if (!session?.user) return Response.json({ error: 'authRequired' }, { status: 401 })
++  const { workspaceId } = await params
++  if (!z.uuid().safeParse(workspaceId).success) return Response.json({ error: 'invalidWorkspace' }, { status: 400 })
++  try {
++    return await workspaceDb.transaction(async tx => {
++      await requireWorkspace(tx, workspaceId, session.user.id)
++      const { rows: [usage] } = await pool.query(`SELECT t.window_start,t.window_end,t.paused,
++        LEAST(CASE WHEN t.override_until > clock_timestamp() THEN t.override_units ELSE t.budget_units END,a.max_budget_units) AS budget,
++        a.max_budget_units AS allocation_budget,a.expires_at AS allocation_expires_at,(a.revoked_at IS NULL AND a.expires_at > clock_timestamp()) AS allocation_active,
++        COALESCE(sum(CASE WHEN r.state='reserved' AND r.expires_at <= clock_timestamp() THEN 0 ELSE COALESCE(r.settled_units,r.units) END),0) AS lifetime_used,
++        COALESCE(sum(CASE WHEN r.state='reserved' AND r.expires_at <= clock_timestamp() THEN 0 ELSE COALESCE(r.settled_units,r.units) END)
++          FILTER (WHERE r.created_at >= t.window_start AND r.created_at < t.window_end),0) AS used,
++        count(r.id) FILTER (WHERE r.state IN ('reserved','executing') AND r.expires_at > clock_timestamp()) AS active,
++        t.concurrency_limit,t.rate_limit,t.rate_window_seconds
++        FROM quota_tenants t LEFT JOIN quota_allocations a ON a.workspace_id=t.workspace_id LEFT JOIN quota_reservations r ON r.workspace_id=t.workspace_id
++        WHERE t.workspace_id=$1 GROUP BY t.workspace_id,a.workspace_id`, [workspaceId])
++      if (!usage) throw new QuotaError('quotaNotConfigured', 503, 60)
++      return Response.json({ unit: 'admission_unit', ...usage }, { headers: { 'Cache-Control': 'private, no-store' } })
++    })
++  } catch (error) {
++    if (error instanceof WorkspaceError) return Response.json({ error: error.code }, { status: 403 })
++    return quotaResponse(error)
++  }
++}
+diff --git a/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts b/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts
+index 7ab81dda64e8db98af94ca84f86616272ef35e30..8e0062d0c3ab642c1124fadf526ffd170baa2545 100644
+--- a/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts
++++ b/app/v1/devices/[deviceId]/runs/[runId]/claim/route.ts
+@@ -9,6 +9,9 @@ import { mcpResourceURL } from '@/lib/mcp/resource'
+ import { issueRunToken } from '@/lib/mcp/worker'
+ import { latestCheckpoint } from '@/lib/run-leases'
+ import { retryNote } from '@/lib/run-retry'
++import { tenantQuotas } from '@/lib/quota/runtime'
++import type { Reservation } from '@/lib/quota/store'
++import { QuotaError, quotaResponse } from '@/lib/quota/errors'
+ 
+ export const dynamic = 'force-dynamic'
+ 
+@@ -27,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ dev
+   const [run] = await db
+     .select()
+     .from(agentRuns)
+-    .where(and(eq(agentRuns.id, runId), eq(agentRuns.deviceId, deviceId), eq(agentRuns.status, 'queued')))
++    .where(and(eq(agentRuns.id, runId), eq(agentRuns.userId, caller.userId), eq(agentRuns.deviceId, deviceId), eq(agentRuns.status, 'queued')))
+     .limit(1)
+   if (!run) return NextResponse.json({ error: 'Run is not queued for this device.' }, { status: 409 })
+   const [agent] = await db.select().from(agents).where(eq(agents.id, run.agentId)).limit(1)
+@@ -40,18 +43,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ dev
+       .where(eq(agentRuns.id, runId))
+     return NextResponse.json({ error: 'Run is missing its agent, repository or issue.' }, { status: 409 })
+   }
+-  const leaseExpiresAt = new Date(Date.now() + RUN_LEASE_MS).toISOString()
+-  const claimed = await db.update(agentRuns)
+-    .set({ status: 'preparing', startedAt: new Date(), leaseExpiresAt: new Date(leaseExpiresAt), updatedAt: new Date() })
+-    .where(and(eq(agentRuns.id, runId), eq(agentRuns.status, 'queued')))
+-    .returning({ id: agentRuns.id })
++  let quota: Reservation
++  try {
++    quota = await tenantQuotas.reserveBound({ ownerId: run.userId, key: `daemon:${run.id}`, resource: 'daemon.run', binding: { runId, issueId: run.issueId, agentId: run.agentId, repoId: repo.id }, leaseMs: RUN_LEASE_MS }, async (client, active) => {
++      const { rows } = await client.query(`UPDATE agent_runs SET status='preparing',"startedAt"=clock_timestamp(),
++        "leaseExpiresAt"=$4,"quotaReservationId"=$5,"updatedAt"=clock_timestamp()
++        WHERE id=$1 AND "userId"=$2 AND "deviceId"=$3 AND status='queued' AND "quotaReservationId" IS NULL AND "startedAt" IS NULL AND "leaseExpiresAt" IS NULL RETURNING id`,
++      [runId, run.userId, deviceId, active.expires_at, active.id])
++      if (!rows.length) throw new QuotaError('quotaRunClaimLost', 409)
++    }, async client => {
++      // Only a never-claimed queued run can recover a legacy refunded orphan.
++      // Claim delivery always persists preparing/startedAt/quota binding first.
++      const proof = await client.query(`SELECT id FROM agent_runs WHERE id=$1 AND "userId"=$2 AND "deviceId"=$3
++        AND status='queued' AND "quotaReservationId" IS NULL AND "startedAt" IS NULL AND "leaseExpiresAt" IS NULL FOR UPDATE`, [runId, run.userId, deviceId])
++      return proof.rowCount === 1
++    })
++  } catch (error) {
++    if (error instanceof QuotaError) return quotaResponse(error)
++    return NextResponse.json({ error: 'quotaUnavailable' }, { status: 503 })
++  }
++  // The run and quota share one persisted deadline, including any wait between
++  // reservation and activation. A lost response cannot reissue this payload.
++  const leaseExpiresAt = quota.expires_at.toISOString()
+   // The worker tools of the MCP server for the agent in this run. A failure
+   // here should not keep the run from starting.
+-  const mcp = claimed.length
+-    ? await issueRunToken(run)
++  const mcp = await issueRunToken(run)
+       .then(({ token }) => ({ url: mcpResourceURL ?? new URL(withBasePath('/api/mcp'), request.url).toString(), token }))
+       .catch((error: unknown) => { console.error('Could not issue a run token', error instanceof Error ? error.message : error); return undefined })
+-    : undefined
+   // A retry after a lost lease works on in the lost attempt's worktree and,
+   // when the harness can, its session; the daemon falls back to `prompt`.
+   // Another machine has no such worktree and starts from the latest
+@@ -67,6 +85,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ dev
+       ...(resumeFrom ? { resumeFrom } : {}),
+     }
+     : {}
++  // Do not hand a newly constructed payload to a worker after its deadline.
++  if (Date.now() >= quota.expires_at.getTime()) return quotaResponse(new QuotaError('quotaLeaseLost', 409))
+   return NextResponse.json({
+     runId, issueId: run.issueId, deviceId, repoId: repo.id,
+     baseBranch: repo.baseBranch, harness: agent.harness, prompt: run.prompt,
+diff --git a/app/v1/runs/[runId]/complete/route.ts b/app/v1/runs/[runId]/complete/route.ts
+index c6e0907bb25575ba898a1705c54d77dc236d1f2c..3c458f967746617be9f9821e7650fc724fd1cbb1 100644
+--- a/app/v1/runs/[runId]/complete/route.ts
++++ b/app/v1/runs/[runId]/complete/route.ts
+@@ -10,6 +10,7 @@ import { recordCoordinatorEvent } from '@/lib/coordinator-event-store'
+ import { runFinishedEvent } from '@/lib/coordinator-events'
+ import { wakeCoordinator } from '@/lib/coordinator/wake'
+ import { revokeRunTokens } from '@/lib/mcp/worker'
++import { tenantQuotas } from '@/lib/quota/runtime'
+ 
+ export const dynamic = 'force-dynamic'
+ 
+@@ -27,14 +28,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ run
+   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+   const { runId } = await params
+   const [run] = await db
+-    .select({ id: agentRuns.id, userId: agentRuns.userId, issueId: agentRuns.issueId, status: agentRuns.status, kind: agentRuns.kind })
++    .select({ id: agentRuns.id, userId: agentRuns.userId, issueId: agentRuns.issueId, status: agentRuns.status, kind: agentRuns.kind, quotaReservationId: agentRuns.quotaReservationId })
+     .from(agentRuns)
+     .innerJoin(devices, eq(devices.id, agentRuns.deviceId))
+-    .where(and(eq(agentRuns.id, runId), eq(devices.ownerId, caller.userId)))
++    .where(and(eq(agentRuns.id, runId), eq(agentRuns.userId, caller.userId), eq(devices.ownerId, caller.userId)))
+     .limit(1)
+   if (!run) return NextResponse.json({ error: 'Unknown run.' }, { status: 404 })
+   // A run ends once: a repeated completion is accepted and ignored.
+-  if (!(LIVE_STATUSES as readonly string[]).includes(run.status)) return new NextResponse(null, { status: 204 })
++  if (!(LIVE_STATUSES as readonly string[]).includes(run.status)) {
++    if (run.quotaReservationId) await tenantQuotas.finish(run.userId, run.quotaReservationId, 'settled')
++    return new NextResponse(null, { status: 204 })
++  }
+   const parsed = runCompleteRequest.safeParse(await request.json().catch(() => null))
+   if (!parsed.success) return NextResponse.json({ error: 'Invalid completion.' }, { status: 400 })
+   const { stopReason, report } = parsed.data
+@@ -50,6 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ run
+     .set({ status, stopReason, report: report ?? null, finishedAt: new Date(), updatedAt: new Date() })
+     .where(and(eq(agentRuns.id, runId), inArray(agentRuns.status, [...LIVE_STATUSES])))
+     .returning({ id: agentRuns.id })
++  if (run.quotaReservationId) await tenantQuotas.finish(run.userId, run.quotaReservationId, 'settled')
+   // Only the completion that ended the run tells the Coordinator.
+   if (ended.length) {
+     await revokeRunTokens(runId)
+diff --git a/docs/backend/215-tenant-quotas.md b/docs/backend/215-tenant-quotas.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e58d6b22dad5ec257ad79ed8ea35ba2a417b7cbf
+--- /dev/null
++++ b/docs/backend/215-tenant-quotas.md
+@@ -0,0 +1,264 @@
++# Tenant execution budgets and quotas (#215)
++
++Backend candidate on `codex/215-tenant-quota-20261025`, based on main `40cbaff`.
++This is implementation and isolated system evidence, not production acceptance.
++No frontend design, subscription credential, commercial plan, price, cloud
++resource purchase, IAM grant, production migration or merge is included.
++
++## Units and authorization
++
++The ledger counts **admission units**, an operator-defined execution allowance.
++It does not debit subscription credits, collect money, infer remaining provider
++credits, or guarantee a dollar cost. Tokens, when available from the Coordinator
++model, are stored as usage observations independently from the allowance.
++
++No allowance is seeded. Missing configuration fails closed. A platform operator
++must first authorize a finite `quota_allocations` grant in the application DB,
++with workspace, fixed per-resource units, maximum lifetime budget, concurrency,
++rate and fixed rate window, expiry, grantor and reason. Tenant window rollover
++cannot reset this platform lifetime cap; only an operator can increase it. There is deliberately no public grant endpoint.
++A workspace administrator may set a policy or temporary override only within
++that existing allocation. They cannot approve unknown resources, lower resource
++weights to zero, expand an allocation, or move an owner's existing tenant binding.
++Overrides record the actual authenticated admin, reason and expiry, and cannot
++outlive the policy or allocation. Changing an active window cannot reset usage.
++An allocation can be revoked without modifying subscription credentials.
++
++Execution ownership in current main is person-scoped. Each owner is explicitly
++bound to one workspace tenant; several owners can share that workspace's
++budget. Execution never accepts a workspace cookie or model-provided tenant as
++billing authority. Every reservation and activation checks the owner's current
++active membership against the existing workspace database after the tenant lock
++has been acquired. Heartbeat renewal repeats these checks. Completion can release
++resources after revocation, without permitting a new effect. Main and workspace
++DBs may be different: authorization is a current directory read, not a distributed
++transaction or a provider-side revocation guarantee. #207 remains the current
++run/tool authorization authority; this does not replace it.
++
++## State and concurrency
++
++All ledger mutations lock tenant then reservation. Admission reserves the full
++resource allowance atomically against spent plus reserved amounts, global tenant
++concurrency and a sliding rate window. All owners, resources and entry points use
++the same tenant lock. Resource-level provider backoff is durable and shared by
++that tenant. The rate count includes refunded attempts, preventing refund loops.
++
++`reserved -> executing -> settled | refunded | uncertain` is immutable once
++terminal. A key is owner-scoped and bound to a canonical payload fingerprint.
++Ten identical callers can obtain one reservation, but only one activates it.
++Changed parameters conflict. Settled or uncertain operations cannot resend just
++because the HTTP response was lost. The existing explicit Agent retry/regenerate
++action creates a new server attempt and is charged separately; transport replays
++retain the original turn key. Reconciliation or a new explicit logical
++operation is needed; the quota ledger does not pretend to cache a model reply.
++
++Expiry while still reserved, or a confirmed pre-send failure before expiry,
++refunds the allowance. An executing lease that has already become uncertain
++retains its allowance, including when its old preparation later fails. An explicit initial
++401/402/403/429 rejection refunds it; transport loss, cancellation after dispatch,
++worker death, or unknown partial work consumes the full reserved allowance.
++A later 429 in a multi-step Agent turn cannot refund earlier accepted work.
++Unknown outcomes never retry automatically. Expiry releases concurrency, while
++retaining the uncertain allowance. Repeated settlement does not charge or extend
++backoff again. Late contradictory outcomes cannot overwrite a terminal result.
++There is no exactly-once claim for external effects.
++
++Concurrency counts active reservations, including nested work: an Agent turn
++and an external tool invoked by it can occupy two slots. Provision the approved
++allocation accordingly. This is an execution safety limit, not a commercial tier.
++Models have zero SDK retries and bounded generation time below the quota lease.
++Ordinary Agent output retains its existing provider-controlled token limit. Daemon quota leases match existing run leases; expired/revoked
++claims cannot be renewed and must be retried through normal fenced run recovery.
++Claim reservation creation, activation and the queued-to-preparing run CAS
++share one PostgreSQL transaction and one persisted deadline. A SQL error or
++process death inside that transaction leaves no reservation and a queued run,
++permitting one safe retry even after a long restart delay. Once committed, the bound run prevents reissuing an ambiguous payload.
++
++Composio has a 270-second whole-operation deadline within its 300-second lease.
++The AbortSignal reaches actual account, schema and execution HTTP requests;
++pagination rejects repeated cursors and more than 50 pages. Its final SDK
++`beforeExecute` hook runs after the SDK's internal schema/file preflight and
++atomically rechecks the original executing lease, allocation, membership and
++backoff immediately before dispatch. It cannot renew an expired lease.
++Cancellation after a confirmed local HTTP effect leaves an uncertain charge and
++blocks replay. No background operation is abandoned by a timeout race.
++
++## Actual call sites
++
++| Entry | Enforcement |
++| --- | --- |
++| `POST /api/agent` | Stable turn key; pre-stream admission; bounded streaming lifecycle; terminal checkpoint settlement; partial-work-aware failure accounting |
++| `WorkflowAgent` Coordinator generation | Serializable `QuotaWorkflowModel`; checks inside actual model execution step, not merely when the workflow is enqueued; stable workflow/round/step key |
++| Coordinator summary | Stable durable step key, bounded `generateText`, no SDK retry |
++| Coordinator HTTP/action/MCP user submissions | Shared `recordCoordinatorEvent` gate before user-message enqueue; system completion events remain deliverable |
++| Decision Gateway | Owner/event key and tenant gate, while preserving existing dedicated Gateway key budget and fixed-rule fallback; absent tenant context uses rules |
++| Agent web tools | Gate before the existing bounded Gateway tool operation; preserves DNS/URL restrictions and cancellation |
++| Composio | Shared wrapper for existing callers, including approved actions; admission before service access, bounded transport cancellation, final SDK pre-send fence, known preflight refunds, provider rejection/backoff observation |
++| App/action/MCP/Coordinator run dispatch | Shared `queueRun` admission; current domain validation preserved |
++| Daemon claim/heartbeat/complete/recovery | Separate per-run execution reservation, same-transaction activation/run CAS, no losing-claim payload, renewable bounded lease, idempotent terminal settlement and uncertain crash settlement |
++| Administrative policy | `PUT /api/workspaces/:workspaceId/quota`; authenticated same-origin active admin; operator grant cap; immutable live window; append-only policy events |
++| Usage query | `GET /api/workspaces/:workspaceId/quota`; active member only, shared usage totals and limits, no credential or model payload disclosure |
++
++#191 still owns durable domain dispatch idempotency, and #208 owns external
++operation identity/outcome reconciliation. Their draft implementations are not
++copied into main or represented as merged here. When integrating their candidates,
++keep the quota wrapper around the final authorized domain transaction. Schedule
++#179 and cloud/BYOS #172 candidates must invoke these same gates at their actual
++execution boundary. Current main has no persistent schedule executor or cloud
++resource provisioner to falsely claim tested. Subscription quota snapshots and
++credential custody are untouched. No fallback to a separately billed API is added.
++
++## Validation and evidence
++
++All new DB tests require an explicit loopback `QUOTA_TEST_DATABASE_URL` with a
++synthetic database name. They never default to either production database URL.
++`lib/quota/store.test.ts` uses a real PostgreSQL schema, SQL state reads, ten-way
++contention, multiple owners/tenants, immutable refunds/settlement, Retry-After,
++rate persistence, expired pre/post-send leases, membership changes while waiting
++on locks, and actual separate workers killed by SIGKILL before and after a local
++HTTP effect. Records are retained. The local HTTP effect is an isolated fixture,
++not a paid provider or a production acceptance claim.
++
++`tests/quota-api.test.mjs` boots the actual built Next app, real Better Auth
++sessions, real application/workspace tables and actual HTTP handlers. It uses
++synthetic identities and a fail-only external-network sentinel: attempted
++external requests fail and are recorded, never simulated as successes. It tests
++ordinary Agent denials, Coordinator enqueue/model boundary, administrator
++restrictions, ten competing daemon claims, duplicate completion, and subsequent
++admission. No actual harness, provider credential or paid execution is permitted.
++A JSON evidence artifact records SHA, migration, environment, UTC and results.
++
++Cloud Linux evidence directory: `/workspace/evidence-215/` (private environment).
++The initial PG suite passed 13/13 with zero skips at
++`2026-10-25T17:01:04Z`; the later operator-allocation test exposed a fixture that
++expected an owner-binding error before the live-window check. The fixture was
++corrected to keep the same target window; failures remain in the evidence logs.
++Expanded local PG regression passed 16/16 with zero skips at
++`2026-10-25T17:23:43Z`, including allocation lifetime/window-reset and rate-window
++evasion, expired overrides at activation, operator revocation at renewal, and a
++real SQL trigger write fault. Initial clean-CI actual Next HTTP regression passed
++6/6 at `88787cd` with zero external network attempts:
++https://github.com/alexj11324/Mikka/actions/runs/40215373894 .
++Source regression passed 29/29, migration checks 11/11 and all 33 migration names
++passed. Exact candidate SHA, final HTTP results and CI links are recorded in the
++PR after execution. Earlier build failures are retained: native SWC cache
++ownership in this container; an initially missing workflow step directive;
++Turbopack refusing external dependency symlinks. Local webpack and the existing
++SWC 1.15.3 build tool are used for the environment; clean CI uses the pinned lockfile
++and ordinary repository build. No repository Next configuration is changed.
++
++## Release gates retained for the parent
++
++- Parent coordinates integration of #191/#208/#172/#179 and #207, freezes one SHA,
++  provisions an explicitly approved non-production operator allocation, and runs
++  real user/provider-safe acceptance and usage readback.
++- No policy/allowance exists for production. Deploying this fail-closed candidate
++  before parent-approved allocation/policy provisioning will deny execution.
++- Actual provider billing/usage reconciliation, connected-subscription revocation,
++  cloud resources, and production acceptance have not been run. The user's
++  instruction forbids spending real credits or creating billable resources here.
++- Existing Claude frontend may consume the backend policy/usage/error contract;
++  no new configuration UI or design is included.
++- Pure backend HTTP/log/DB evidence is applicable here. There is no genuine UI or
++  production-flow video to claim. A parent-authorized integrated user acceptance
++  recording remains a release artifact, not a reason to fabricate a demo.
++- #215 remains open until applicable integrated acceptance and independent review.
++
++### Measurement inventory
++
++| Existing source | What can be measured | Limitation / admission policy |
++| --- | --- | --- |
++| Ordinary Agent / Coordinator SDK | Model requests, bounded steps/output; Coordinator returned token observations | No current verified per-request price/remaining spend source. Operator-approved admission units, not inferred currency. |
++| Decision Gateway | Existing dedicated key budget and fixed-rule fallback | Keep #128's provider-side cap. No new shared Gateway budget or price assumption. |
++| Gateway web and Composio | Bounded requested operations, explicit rejection status / Retry-After when available | Tool/service charge and provider completion after transport loss are not authoritative billing readback. Unknown cost requires operator allocation. |
++| Daemon subscription quota protocol | Vendor, source, `ok`/`unknown`, used window fraction, reset time and observation time | This is a numeric observation, not a monetary ledger or authorization to extract a credential. It cannot establish exact per-run dollar cost; readers and subscription semantics remain unchanged. |
++| Native daemon run | Claim, heartbeat lease, run completion / uncertain loss | Admission units do not represent the provider's actual subscription debit. Live provider exhaustion, disconnected custody and balance reconciliation remain integrated #172/#207 acceptance gates. |
++| Cloud computer / persistent schedules | Candidate #172/#179 own actual resource and occurrence lifecycle | Current main lacks these executors. Parent must wire the same gate at the final boundary; no cloud/provider execution was purchased or presumed tested. |
++
++A failed local acceptance launch exposed a driver cleanup bug after an already
++exited child. The driver now bounds readiness probes, retains child output as it
++arrives, records startup failure, and cleans up on test cancellation without
++waiting for an exit event that already happened. The failed launch and font
++fetch errors remain in the private evidence directory.
++
++### Independent review corrections (2026-10-25)
++
++The old candidate `905fea22` passed its CI but had two independently identified
++pre-send gaps. New isolated regressions first reproduced both before correction:
++
++- A real `agent_runs` BEFORE UPDATE trigger forced the claim CAS to fail after
++  separately committed quota activation. HTTP returned 500 and left a queued run
++  with no reservation binding; same-key retries returned 409 even after expiry.
++  The first correction returned 503 with queued/reserved state and allowed an
++  immediate retry, but a new actual HTTP regression showed late retry still
++  failed after reservation expiry. The final handler rolls reservation creation
++  back too, returning 503 with queued/no-reservation state; retry binds the
++  preparing run and quota atomically. A separate worker killed
++  by SIGKILL inside the combined transaction verifies rollback and recovery.
++- The real Composio SDK used controlled loopback HTTP for accounts, schema and
++  execution, with actual PG allowance/HTTP-effect records. Delayed preflight
++  formerly dispatched after a competing request expired its lease; a timeout
++  formerly left the HTTP request running and dispatched later. Corrected tests
++  cover ordinary preflight, the SDK's additional internal schema fetch, actual
++  socket cancellation, a successful execution control and response loss after
++  one confirmed effect. That last case remains uncertain and cannot resend.
++
++`tests/quota-claim-fault.test.mjs` boots the real Next HTTP handler against
++synthetic application tables. `lib/quota/composio.test.ts` uses the installed
++SDK with a loopback base URL, synthetic key and tracking disabled; it does not
++replace handlers or manufacture SDK successes. Test-only PG expiry advancement
++models a delayed host without waiting five minutes; the separate deadline case
++uses a real timer and verifies that the actual HTTP socket closes. These tests
++run in the quota CI workflow alongside the existing actual-app HTTP suite.
++Failures and corrected results remain in `/workspace/evidence-215/`; final SHA
++and CI links are recorded in the PR after execution, with runner parent counts
++distinguished from independent scenarios. No production/provider acceptance is
++implied by these regressions.
++
++The controlled SDK suite also exposed a wrapped-HTTP-429 observation gap: its
++HTTP API error carries `status` and `Headers` inside `cause`. Bounded error-cause
++inspection now recognizes that explicit rejection, refunds the allowance and
++persists Retry-After; a different logical request is denied without another
++HTTP execution. A 500 or unknown/cyclic error remains uncertain. The real SDK
++regression first failed with an uncertain charge, then passed after correction.
++
++The broader `pnpm check` additionally exposed an old candidate output-cap
++regression; the extra ordinary-Agent 8192-token cap was removed to preserve
++existing provider output semantics. Two unrelated source-layout assertions at
++`tests/agent-ui.test.mjs:39` and `:433` still fail identically in a clean detached
++base `40cbaff` worktree (hydration preload and conversation Popover expectations).
++Their source files are unchanged here. These baseline failures are retained for
++parent/Claude coordination; no frontend layout or assertion is changed to hide
++them. Individual remaining standard checks are run and recorded separately.
++
++A third base-reproduced source assertion is
++`tests/acceptance.test.mjs:7`: it expects only `NODE_ENV === development` before
++partitioned-cookie options, while unchanged base auth also requires HTTPS. The
++new quota work does not change auth or weaken that condition. The broader check
++remains red for these three verified baseline assertions; the other 18 remaining
++script groups pass, including types/lint. This differs from the repository CI
++workflow, which does not run those two source-test files.
++
++Legacy claim compatibility preserves terminal history: an expired reserved
++record becomes refunded once; a trusted same-transaction run read must prove
++queued status and null quota binding, startedAt and leaseExpiresAt before a
++new `quota-unsent:<old reservation id>` attempt can be admitted. The old refund
++is never reopened or charged again. New admission still checks current budget,
++concurrency, rate, membership and allocation. A child attempt is unique and
++immutable, so uncertain/settled/executing work cannot replay. Actual HTTP tests
++also prove that an ambiguous non-null startedAt refuses this recovery. A
++separate worker is SIGKILLed after legacy reservation commit, its lease is
++advanced past expiry in the isolated PG, and a restarted store binds exactly
++one new charge while retaining the zero-unit old refund.
++
++The locked Composio client `2.0.0-rc.19` removed its manual caller-signal bridge
++after HTTP headers, leaving body decoding outside cancellation. A new real SDK
++HTTP test first failed when the server flushed headers/partial JSON and stalled
++the body. The checked-in pnpm patch composes the caller signal directly with
++the attempt signal sent to fetch, keeping the caller's whole-operation deadline
++connected through response-body I/O. It changes no dependency versions and
++introduces no global fetch hook or abandoned Promise race. Frozen-lockfile
++installation and exact-head CI verify patch application. The regression checks
++actual socket closure before the delayed body, no execution POST and a safe
++pre-send refund. SDK per-attempt header timeout is not treated as a substitute
++for this caller deadline.
+diff --git a/drizzle/20261025165100_tenant_quotas.sql b/drizzle/20261025165100_tenant_quotas.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ae2154a87fdb3cf28ec13064ec80917e364e084
+--- /dev/null
++++ b/drizzle/20261025165100_tenant_quotas.sql
+@@ -0,0 +1,74 @@
++-- Admission units are operator-defined execution allowances, never currency,
++-- subscription credits, or a promise about a provider's unknown monetary cost.
++-- Platform operator authorization is separate from a tenant administrator's
++-- preferences. This table has no public mutation route and no seeded grants.
++CREATE TABLE IF NOT EXISTS quota_allocations (
++  workspace_id uuid PRIMARY KEY,
++  max_budget_units bigint NOT NULL CHECK (max_budget_units >= 0 AND max_budget_units <= 9007199254740991),
++  max_concurrency integer NOT NULL CHECK (max_concurrency > 0),
++  max_rate_limit integer NOT NULL CHECK (max_rate_limit > 0),
++  rate_window_seconds integer NOT NULL CHECK (rate_window_seconds BETWEEN 1 AND 86400),
++  resources jsonb NOT NULL CHECK (jsonb_typeof(resources)='object'),
++  expires_at timestamptz NOT NULL,
++  granted_by text NOT NULL,
++  reason text NOT NULL CHECK (length(reason)>0),
++  revoked_at timestamptz
++);
++CREATE TABLE IF NOT EXISTS quota_tenants (
++  workspace_id uuid PRIMARY KEY,
++  window_start timestamptz NOT NULL,
++  window_end timestamptz NOT NULL,
++  budget_units bigint NOT NULL CHECK (budget_units >= 0 AND budget_units <= 9007199254740991),
++  concurrency_limit integer NOT NULL CHECK (concurrency_limit > 0),
++  rate_limit integer NOT NULL CHECK (rate_limit > 0),
++  rate_window_seconds integer NOT NULL CHECK (rate_window_seconds BETWEEN 1 AND 86400),
++  resources jsonb NOT NULL CHECK (jsonb_typeof(resources) = 'object'),
++  paused boolean NOT NULL DEFAULT false,
++  override_units bigint CHECK (override_units >= 0 AND override_units <= 9007199254740991),
++  override_until timestamptz,
++  override_by text,
++  override_reason text,
++  CHECK (window_end > window_start),
++  CHECK ((override_units IS NULL AND override_until IS NULL AND override_by IS NULL AND override_reason IS NULL)
++    OR (override_units IS NOT NULL AND override_until IS NOT NULL AND override_by IS NOT NULL AND length(override_reason) > 0 AND override_until <= window_end))
++);
++-- Existing execution paths are owner-scoped and have no workspace argument.
++-- An owner has one explicit billing tenant; caller cookies cannot switch it.
++CREATE TABLE IF NOT EXISTS quota_owners (
++  owner_id text PRIMARY KEY,
++  workspace_id uuid NOT NULL REFERENCES quota_tenants(workspace_id)
++);
++CREATE TABLE IF NOT EXISTS quota_reservations (
++  id uuid PRIMARY KEY,
++  owner_id text NOT NULL REFERENCES quota_owners(owner_id),
++  workspace_id uuid NOT NULL REFERENCES quota_tenants(workspace_id),
++  request_key text NOT NULL CHECK (length(request_key) BETWEEN 1 AND 256),
++  resource text NOT NULL,
++  fingerprint text NOT NULL,
++  units bigint NOT NULL CHECK (units >= 0 AND units <= 9007199254740991),
++  settled_units bigint CHECK (settled_units >= 0 AND settled_units <= units),
++  state text NOT NULL CHECK (state IN ('reserved','executing','settled','refunded','uncertain')),
++  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
++  expires_at timestamptz NOT NULL,
++  finished_at timestamptz,
++  usage jsonb,
++  UNIQUE(owner_id, request_key),
++  CHECK ((state IN ('reserved','executing') AND settled_units IS NULL AND finished_at IS NULL)
++    OR (state IN ('settled','refunded','uncertain') AND settled_units IS NOT NULL AND finished_at IS NOT NULL))
++);
++CREATE INDEX IF NOT EXISTS quota_reservations_tenant_window ON quota_reservations(workspace_id, created_at);
++CREATE INDEX IF NOT EXISTS quota_reservations_live ON quota_reservations(workspace_id, expires_at) WHERE state IN ('reserved','executing');
++CREATE TABLE IF NOT EXISTS quota_backoffs (
++  workspace_id uuid NOT NULL REFERENCES quota_tenants(workspace_id),
++  resource text NOT NULL,
++  retry_at timestamptz NOT NULL,
++  PRIMARY KEY(workspace_id, resource)
++);
++CREATE TABLE IF NOT EXISTS quota_policy_events (
++  id uuid PRIMARY KEY,
++  workspace_id uuid NOT NULL REFERENCES quota_tenants(workspace_id),
++  actor text NOT NULL,
++  policy jsonb NOT NULL,
++  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
++);
++ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS "quotaReservationId" uuid REFERENCES quota_reservations(id);
+diff --git a/lib/action-error.ts b/lib/action-error.ts
+index d6ff87fe4c5840a22077689d0a5ae3e6b426e76c..7ae7d54f441d8de40a2b109a01759b5816493aa0 100644
+--- a/lib/action-error.ts
++++ b/lib/action-error.ts
+@@ -1,4 +1,5 @@
+ import type { ActionErrorCode, ActionErrorParams, ActionResult } from './action-result'
++import { QuotaError } from './quota/errors'
+ 
+ export class ActionFailureError extends Error {
+   constructor(readonly code: ActionErrorCode, readonly params?: ActionErrorParams) {
+@@ -16,6 +17,7 @@ export async function runAction<T>(fn: () => Promise<T | ActionResult<T>>): Prom
+     return await fn() as ActionResult<T>
+   } catch (error) {
+     if (error instanceof ActionFailureError) return { error: error.code, params: error.params }
++    if (error instanceof QuotaError) return { error: 'generic', params: { quota: error.code, retryAfter: error.retryAfter } }
+     throw error
+   }
+ }
+diff --git a/lib/agent-runs.ts b/lib/agent-runs.ts
+index 31b4893b52ad99c4d69349a9eaccc9ae30eac68a..7f22d1c32c69f2acbf7cee70f7597fbbd926bcef 100644
+--- a/lib/agent-runs.ts
++++ b/lib/agent-runs.ts
+@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
+ import { agents, agentRuns, deviceRepos, runChunks, runMessages, type SupportedHarness } from '@/lib/db/schema'
+ import { issueForUser } from '@/lib/issue-access'
+ import { tiptapToText } from '@/lib/tiptap-text'
++import { withTenantQuota } from '@/lib/quota/runtime'
+ 
+ // Run operations for one person, by user id. The agent actions call these
+ // with the session's user; the Coordinator calls them with its owner's.
+@@ -56,11 +57,11 @@ export async function queueRun(userId: string, input: { issueId: string; agentId
+     .where(and(eq(deviceRepos.id, parsed.data.deviceRepoId), eq(deviceRepos.deviceId, agent.deviceId), eq(deviceRepos.userId, userId))).limit(1)
+   if (!repo) throw new ActionFailureError('agentRepoMissing')
+   const runId = crypto.randomUUID()
+-  await db.insert(agentRuns).values({
++  await withTenantQuota(userId, 'daemon.dispatch', { ...parsed.data, runId }, async () => { await db.insert(agentRuns).values({
+     id: runId, userId, issueId: issue.id, agentId: agent.id, deviceId: agent.deviceId,
+     deviceRepoId: repo.id, status: 'queued', kind: 'implement', baseBranch: repo.baseBranch,
+     prompt: runPrompt(issue.title, tiptapToText(issue.content), agent.instructions, parsed.data.note),
+-  })
++  }) }, `dispatch:${runId}`)
+   return { runId }
+ }
+ 
+diff --git a/lib/agent-web-tools.ts b/lib/agent-web-tools.ts
+index ebcf35877054e7bfb7ae034d36f7637c22db3e14..df9d57fdbc89d23f1fe23708c4cc6ef292b8f2a2 100644
+--- a/lib/agent-web-tools.ts
++++ b/lib/agent-web-tools.ts
+@@ -72,6 +72,7 @@ export function createAgentWebTools(options: {
+   signal: AbortSignal
+   run?: RunWebTool
+   resolve?: ResolveHost
++  admit?: (operation: Operation, input: string, execute: () => Promise<unknown>) => Promise<unknown>
+ }) {
+   const run = options.run ?? runGatewayTool
+   const resolve = options.resolve ?? (hostname => lookup(hostname, { all: true }))
+@@ -91,7 +92,9 @@ export function createAgentWebTools(options: {
+           return { ok: false as const, error: '该地址不是允许访问的公共网页。' }
+         }
+       }
+-      const output = await run(operation, input, signal)
++      // Production callers supply the tenant gate; tests can exercise parsing
++      // without a provider or database. Never silently bypass a supplied gate.
++      const output = await (options.admit ? options.admit(operation, input, () => run(operation, input, signal)) : run(operation, input, signal))
+       const retrievedAt = new Date().toISOString()
+       if (operation === 'search') {
+         const parsed = searchResponse.parse(output)
+diff --git a/lib/composio-actions.ts b/lib/composio-actions.ts
+index 2751b8e59a3dfb333b578a46bc66d390baabc34f..a4cacc0cc7bdfdcebf73f0042f12270183ea86f1 100644
+--- a/lib/composio-actions.ts
++++ b/lib/composio-actions.ts
+@@ -163,6 +163,7 @@ export async function executeComposioAction(
+   actionName: string,
+   input: unknown,
+   client: ComposioActionClient | null,
++  options: { signal?: AbortSignal; beforeExecute?: () => Promise<void>; onFailure?: (error: unknown) => Promise<void> } = {},
+ ): Promise<ComposioActionResult> {
+   if (!Object.hasOwn(COMPOSIO_ACTIONS, actionName)) return { error: 'integrationActionNotAllowed' }
+   const action = COMPOSIO_ACTIONS[actionName as ComposioActionName]
+@@ -171,14 +172,16 @@ export async function executeComposioAction(
+   if (!client) return { error: 'composioNotConfigured' }
+ 
+   try {
++    options.signal?.throwIfAborted()
+     const accounts = await listComposioPages(cursor => client.connectedAccounts.list({
+       userIds: [userId], toolkitSlugs: [action.toolkit], statuses: ['ACTIVE'], cursor,
+-    }))
++    }, { signal: options.signal }), { signal: options.signal })
+     const active = accounts.filter(account => account.toolkit.slug === action.toolkit && account.status === 'ACTIVE' && !account.isDisabled)
+     if (active.length === 0) return { error: 'integrationNotConnected' }
+     if (active.length > 1) return { error: 'integrationMultipleAccounts' }
+ 
+-    const schema = await client.tools.getRawComposioToolBySlug(action.slug)
++    const schema = await client.tools.getRawComposioToolBySlug(action.slug, undefined, { signal: options.signal })
++    options.signal?.throwIfAborted()
+     if (!schema.version || schema.version === 'latest') return { error: 'integrationActionVersionUnavailable' }
+ 
+     const result = await client.tools.execute(action.slug, {
+@@ -186,11 +189,17 @@ export async function executeComposioAction(
+       connectedAccountId: active[0].id,
+       version: schema.version,
+       arguments: actionArguments(actionName as ComposioActionName, parsed),
+-    })
++    }, { signal: options.signal, beforeExecute: async ({ params }) => {
++      options.signal?.throwIfAborted()
++      await options.beforeExecute?.()
++      options.signal?.throwIfAborted()
++      return params
++    } })
+     return result.successful
+       ? { data: result.data, ...(result.logId ? { logId: result.logId } : {}) }
+       : { error: result.error ?? 'integrationActionFailed', ...(result.logId ? { logId: result.logId } : {}) }
+   } catch (error) {
++    await options.onFailure?.(error)
+     console.error('Composio action failed', {
+       action: action.slug,
+       error: error instanceof Error ? error.name : 'unknown',
+diff --git a/lib/composio-pagination.test.ts b/lib/composio-pagination.test.ts
+index 33ad731f8f04127f1c98d0aea925b65b2e465c50..6c25a686b67fa9b81a6541af6f4c29236b0c3274 100644
+--- a/lib/composio-pagination.test.ts
++++ b/lib/composio-pagination.test.ts
+@@ -12,3 +12,15 @@ test('loads every Composio page in cursor order', async () => {
+   assert.deepEqual(cursors, [undefined, 'next'])
+   assert.deepEqual(items, ['first', 'second'])
+ })
++
++test('bounds repeated cursors, total pages and an already aborted operation', async () => {
++  let calls = 0
++  await assert.rejects(listComposioPages(async () => { calls++; return { items: [], nextCursor: 'same' } }), /pagination bound/)
++  assert.equal(calls, 2)
++  calls = 0
++  await assert.rejects(listComposioPages(async () => { calls++; return { items: [], nextCursor: String(calls) } }, { maxPages: 3 }), /pagination bound/)
++  assert.equal(calls, 3)
++  calls = 0
++  await assert.rejects(listComposioPages(async () => { calls++; return { items: [] } }, { signal: AbortSignal.abort() }))
++  assert.equal(calls, 0)
++})
+diff --git a/lib/composio-pagination.ts b/lib/composio-pagination.ts
+index fc2f805c5132d0c9a667cc3f443a10287066ffce..a606b5609fa167cf32f8e5a3f91d542509a56e41 100644
+--- a/lib/composio-pagination.ts
++++ b/lib/composio-pagination.ts
+@@ -1,8 +1,16 @@
+-export async function listComposioPages<T>(fetchPage: (cursor?: string) => Promise<{ items: T[]; nextCursor?: string | null }>) {
++export async function listComposioPages<T>(fetchPage: (cursor?: string) => Promise<{ items: T[]; nextCursor?: string | null }>, options: { signal?: AbortSignal; maxPages?: number } = {}) {
+   const items: T[] = []
++  const seen = new Set<string>()
++  const maxPages = options.maxPages ?? 50
++  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) throw new Error('Invalid Composio pagination bound')
++  let pages = 0
+   let cursor: string | undefined
+   do {
++    options.signal?.throwIfAborted()
++    if (++pages > maxPages || (cursor && seen.has(cursor))) throw new Error('Composio pagination bound exceeded')
++    if (cursor) seen.add(cursor)
+     const page = await fetchPage(cursor)
++    options.signal?.throwIfAborted()
+     items.push(...page.items)
+     cursor = page.nextCursor ?? undefined
+   } while (cursor)
+diff --git a/lib/composio.ts b/lib/composio.ts
+index 8848f4d8525f856457dab9dfb53918002967a2bc..0339efb49c0d973673da796c5846dea8e85239ce 100644
+--- a/lib/composio.ts
++++ b/lib/composio.ts
+@@ -1,6 +1,8 @@
+ import 'server-only'
+ import { Composio } from '@composio/core'
+-import { executeComposioAction, type ComposioActionName, type ComposioActionResult } from '@/lib/composio-actions'
++import { type ComposioActionName, type ComposioActionResult } from '@/lib/composio-actions'
++import { tenantQuotas } from '@/lib/quota/runtime'
++import { budgetedComposioAction } from '@/lib/quota/composio'
+ 
+ export const COMPOSIO_TOOLKITS = ['gmail', 'googlecalendar', 'notion', 'slack'] as const
+ export type ComposioToolkit = (typeof COMPOSIO_TOOLKITS)[number]
+@@ -10,8 +12,8 @@ export function getComposio() {
+   return apiKey ? new Composio({ apiKey }) : null
+ }
+ 
+-export function runComposioAction(userId: string, action: ComposioActionName, input: unknown): Promise<ComposioActionResult> {
+-  return executeComposioAction(userId, action, input, getComposio())
++export async function runComposioAction(userId: string, action: ComposioActionName, input: unknown, operationKey: string = crypto.randomUUID()): Promise<ComposioActionResult> {
++  return budgetedComposioAction(tenantQuotas, userId, action, input, getComposio, operationKey)
+ }
+ 
+ export function isComposioToolkit(value: string): value is ComposioToolkit {
+diff --git a/lib/coordinator-event-store.ts b/lib/coordinator-event-store.ts
+index bdc0c18b6e429eb5b16846be9b13e3299d42b688..6041de904a9ebbb8b35fc01d2e3ffdcfac18fc3d 100644
+--- a/lib/coordinator-event-store.ts
++++ b/lib/coordinator-event-store.ts
+@@ -3,12 +3,15 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
+ import { db } from '@/lib/db'
+ import { coordinatorEvents } from '@/lib/db/schema'
+ import type { CoordinatorEventInput } from '@/lib/coordinator-events'
++import { withTenantQuota } from '@/lib/quota/runtime'
+ 
+ type Executor = Pick<typeof db, 'insert'>
+ 
+ /** Writes the event once; a repeat with the same dedupe key is ignored. */
+ export async function recordCoordinatorEvent(executor: Executor, event: CoordinatorEventInput) {
+-  await executor.insert(coordinatorEvents).values({ id: crypto.randomUUID(), ...event }).onConflictDoNothing({ target: coordinatorEvents.dedupeKey })
++  const insert = async () => { await executor.insert(coordinatorEvents).values({ id: crypto.randomUUID(), ...event }).onConflictDoNothing({ target: coordinatorEvents.dedupeKey }) }
++  if (event.kind === 'user_message') await withTenantQuota(event.userId, 'coordinator.submit', event.payload, insert, event.dedupeKey)
++  else await insert()
+ }
+ 
+ /** The person's events the Coordinator has not taken yet, oldest first. */
+diff --git a/lib/coordinator/decide.ts b/lib/coordinator/decide.ts
+index f61968b587e1765994959483b35e00d064cd3991..a0e4fc18fa59aa4c990f79f384e1233a502192c1 100644
+--- a/lib/coordinator/decide.ts
++++ b/lib/coordinator/decide.ts
+@@ -1,5 +1,6 @@
+ import 'server-only'
+ import { answersByName, DECISION_MODEL, DECISIONS_URL, type DecisionQuestion, type DecisionResponse } from '@/lib/coordinator/decision'
++import { withTenantQuota } from '@/lib/quota/runtime'
+ 
+ /** Longest a decision call may take before the caller falls back to its rules. */
+ const DECISION_TIMEOUT_MS = 5000
+@@ -12,17 +13,20 @@ const DECISION_TIMEOUT_MS = 5000
+  * Gateway refuses) or the call fails, so the caller falls back to its fixed
+  * rules. Never throws.
+  */
+-export async function decide(purpose: string, input: string, questions: DecisionQuestion[]) {
++export async function decide(purpose: string, input: string, questions: DecisionQuestion[], ownerId?: string, requestKey?: string) {
+   const key = process.env.DECISION_GATEWAY_API_KEY
+-  if (!key) return null
++  if (!key || !ownerId) return null
+   try {
+-    const response = await fetch(DECISIONS_URL, {
++    const response = await withTenantQuota(ownerId, 'gateway.decision', { purpose, input, questions }, async () => {
++      const response = await fetch(DECISIONS_URL, {
+       method: 'POST',
+       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+       body: JSON.stringify({ model: DECISION_MODEL, input, questions }),
+       signal: AbortSignal.timeout(DECISION_TIMEOUT_MS),
+-    })
+-    if (!response.ok) throw new Error(`AI Gateway answered ${response.status}`)
++      })
++      if (!response.ok) throw Object.assign(new Error(`AI Gateway answered ${response.status}`), { statusCode: response.status, responseHeaders: { 'retry-after': response.headers.get('retry-after') } })
++      return response
++    }, requestKey)
+     return answersByName(await response.json() as DecisionResponse)
+   } catch (error) {
+     console.error(`Decision call (${purpose}) failed`, error instanceof Error ? error.message : error)
+diff --git a/lib/coordinator/wake.ts b/lib/coordinator/wake.ts
+index d4290fca35871b7e09df5bf5e0afbbaeb6694432..bd1d89b698df249d3997c1d514917547a73c152a 100644
+--- a/lib/coordinator/wake.ts
++++ b/lib/coordinator/wake.ts
+@@ -17,8 +17,8 @@ export function coordinatorEnabled(): boolean {
+ }
+ 
+ /** Asks the decision model whether an event needs the person. When it does not answer, the event gets its quiet tier. */
+-async function decideTier(event: Parameters<typeof triageState>[0]): Promise<CoordinatorEventTier> {
+-  const answer = (await decide('triage', decisionInput(triageState(event)), triageQuestions(event)))?.get('needsPerson')
++async function decideTier(event: Parameters<typeof triageState>[0] & { userId: string; id: string }): Promise<CoordinatorEventTier> {
++  const answer = (await decide('triage', decisionInput(triageState(event)), triageQuestions(event), event.userId, `triage:${event.id}`))?.get('needsPerson')
+   if (answer?.type === 'predicate') return tierFromDecision(answer.probability, event.kind)
+   return event.kind === 'run_report' ? 'background' : 'result'
+ }
+diff --git a/lib/db/schema.ts b/lib/db/schema.ts
+index 1ff1659e92dec157515fb6aa61be9a8e291d018b..6be568930f8729b5b23981e9541871571a92146c 100644
+--- a/lib/db/schema.ts
++++ b/lib/db/schema.ts
+@@ -183,6 +183,7 @@ export const agentRuns = pgTable('agent_runs', {
+   /** The run this one retries, when its device went offline. */
+   retryOf: uuid('retryOf').references((): AnyPgColumn => agentRuns.id, { onDelete: 'set null' }),
+   stopRequestedAt: timestamp('stopRequestedAt', { withTimezone: true }),
++  quotaReservationId: uuid('quotaReservationId'),
+   startedAt: timestamp('startedAt', { withTimezone: true }),
+   finishedAt: timestamp('finishedAt', { withTimezone: true }),
+   createdAt: timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
+diff --git a/lib/issue-scope-judge.ts b/lib/issue-scope-judge.ts
+index fac11826c035785a11919ef3c20433eed5c817f1..4c79730cc937d6421610a6538f14cf0cd56c3e5a 100644
+--- a/lib/issue-scope-judge.ts
++++ b/lib/issue-scope-judge.ts
+@@ -27,7 +27,7 @@ export async function judgeIssueScope(issueId: string, source: string): Promise<
+       .where(and(eq(issues.userId, issue.userId), eq(issues.scopeSetBy, 'user'), ne(issues.id, issue.id)))
+       .orderBy(desc(issues.updatedAt)).limit(SCOPE_EXAMPLE_LIMIT)
+     const state = scopeState({ title: issue.title, description: tiptapToText(issue.content), source, linearTeam: team, examples })
+-    const answer = (await decide('issue-scope', decisionInput(state), scopeQuestions()))?.get('workspace')
++    const answer = (await decide('issue-scope', decisionInput(state), scopeQuestions(), issue.userId, `scope:${issue.id}:${issue.revision}`))?.get('workspace')
+     if (answer?.type !== 'predicate') return
+     const scope = scopeFromProbability(answer.probability)
+     // Only while the agent still owns the decision: a click in the meantime wins.
+diff --git a/lib/pending-actions.ts b/lib/pending-actions.ts
+index 27263d2d2a2ebf2090a9d518208cadfa2b04d482..6fbe9543c7bdf13c0cb8103ef5e821c8dcf174db 100644
+--- a/lib/pending-actions.ts
++++ b/lib/pending-actions.ts
+@@ -26,7 +26,7 @@ export async function decidePendingAction(userId: string, id: string, approve: b
+   let error: string | null = null
+   let outcome: Record<string, string> = {}
+   if (approve) {
+-    const result = await runComposioAction(userId, row.action, row.input)
++    const result = await runComposioAction(userId, row.action, row.input, `approved-action:${row.id}`)
+     if ('error' in result) {
+       status = 'failed'
+       error = result.error
+diff --git a/lib/quota/composio.test.ts b/lib/quota/composio.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..da837c314e64991313281e69ed6990a542f81bd3
+--- /dev/null
++++ b/lib/quota/composio.test.ts
+@@ -0,0 +1,148 @@
++import assert from 'node:assert/strict'
++import {randomUUID} from 'node:crypto'
++import {readFile,writeFile} from 'node:fs/promises'
++import {createServer,type ServerResponse} from 'node:http'
++import {once} from 'node:events'
++import {setTimeout as delay} from 'node:timers/promises'
++import {execFileSync} from 'node:child_process'
++import {join} from 'node:path'
++import {tmpdir} from 'node:os'
++import test from 'node:test'
++import {Pool} from 'pg'
++import {Composio} from '@composio/core'
++import {QuotaStore} from './store'
++import {configureQuota,quotaPolicySchema} from './config'
++import {budgetedComposioAction} from './composio'
++const target=process.env.QUOTA_TEST_DATABASE_URL
++if(target){const u=new URL(target);assert.ok(['localhost','127.0.0.1','[::1]'].includes(u.hostname));assert.match(u.pathname,/(?:_e2e|_quota215)$/)}
++const account={id:'synthetic-account',auth_config:{id:'synthetic-config',is_composio_managed:true,is_disabled:false},toolkit:{slug:'notion'},status:'ACTIVE',status_reason:null,is_disabled:false,created_at:'2026-10-25T00:00:00Z',updated_at:'2026-10-25T00:00:00Z'}
++const tool={slug:'NOTION_SEARCH_NOTION_PAGE',name:'Synthetic Notion search',toolkit:{slug:'notion',name:'Notion'},version:'20261018_00',input_parameters:{type:'object',properties:{query:{type:'string'}}},output_parameters:{type:'object',properties:{}}}
++function deferred(){let resolve!:()=>void;const promise=new Promise<void>(r=>{resolve=r});return{promise,resolve}}
++function json(res:ServerResponse,body:unknown){if(!res.destroyed){res.setHeader('content-type','application/json');res.end(JSON.stringify(body))}}
++
++test('real Composio SDK HTTP preflight, lease fencing and transport cancellation',{skip:!target,timeout:30000},async t=>{
++ const network=join(tmpdir(),`quota-sdk-network-${randomUUID()}.jsonl`);await writeFile(network,'');process.env.QUOTA_NETWORK_EVIDENCE=network
++ await import('../../tests/fixtures/quota-network-guard.mjs')
++ const admin=new Pool({connectionString:target,max:1}),schema=`composio_quota_${randomUUID().replaceAll('-','')}`
++ await admin.query(`CREATE SCHEMA "${schema}"`)
++ const url=new URL(target!);url.searchParams.set('options',`-c search_path=${schema}`)
++ const pool=new Pool({connectionString:url.toString(),max:8})
++ const store=new QuotaStore(pool,async(owner,workspace)=>Boolean((await pool.query('SELECT 1 FROM quota_test_members WHERE owner_id=$1 AND workspace_id=$2',[owner,workspace])).rowCount))
++ const evidence:{sha:string;utc:string;schema:string;cases:Record<string,unknown>[];blockedNetworkAttempts?:unknown[]}={sha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),utc:new Date().toISOString(),schema,cases:[]}
++ try{
++  await pool.query('CREATE TABLE agent_runs(id uuid PRIMARY KEY)')
++  await pool.query(await readFile(new URL('../../drizzle/20261025165100_tenant_quotas.sql',import.meta.url),'utf8'))
++  await pool.query('CREATE TABLE quota_test_members(owner_id text PRIMARY KEY,workspace_id uuid NOT NULL)')
++  await pool.query('CREATE TABLE quota_test_effects(id uuid PRIMARY KEY,service_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp())')
++  const fixture=async()=>{const owner=randomUUID(),workspace=randomUUID(),resources={'composio.action':{units:1,unknownCostApproved:true}}
++   const policy=quotaPolicySchema.parse({windowStart:new Date(Date.now()-60000).toISOString(),windowEnd:new Date(Date.now()+3600000).toISOString(),budgetUnits:10,concurrencyLimit:1,rateLimit:100,rateWindowSeconds:60,resources,owners:[owner],paused:false,override:null})
++   await pool.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,rate_window_seconds,resources,expires_at,granted_by,reason) VALUES($1,10,1,100,60,$2,now()+interval '2 hours','test-operator','controlled SDK HTTP fixture')`,[workspace,resources])
++   await configureQuota(pool,workspace,owner,policy);await pool.query('INSERT INTO quota_test_members VALUES($1,$2)',[owner,workspace]);return{owner,workspace,key:randomUUID()}}
++  async function service(beforeAccounts?:(res:ServerResponse)=>Promise<void>, beforeExecutionResponse?:()=>Promise<void>, beforeSchema?:(count:number)=>Promise<void>, rejectExecution?:number){const requests:string[]=[],effects:{at:string}[]=[],id=randomUUID();let schemaRequests=0
++   const server=createServer(async(req,res)=>{
++    requests.push(`${req.method} ${req.url}`)
++    if(req.url?.includes('connected_accounts')){await beforeAccounts?.(res);json(res,{items:[account],next_cursor:null,total_pages:1});return}
++    if(req.method==='POST'&&req.url?.includes('execute')){if(rejectExecution){res.statusCode=rejectExecution;res.setHeader('retry-after','30');json(res,{error:{message:'synthetic provider rejection'}});return}await pool.query('INSERT INTO quota_test_effects(id,service_id) VALUES($1,$2)',[randomUUID(),id]);effects.push({at:new Date().toISOString()});await beforeExecutionResponse?.();json(res,{data:{synthetic:true},successful:true,error:null,log_id:'synthetic-log'});return}
++    if(req.method==='GET'&&req.url?.includes('tools')){await beforeSchema?.(++schemaRequests);json(res,tool);return}
++    res.statusCode=404;json(res,{error:'unknown synthetic endpoint'})
++   });server.listen(0,'127.0.0.1');await once(server,'listening')
++   const client=new Composio({apiKey:'synthetic-no-provider-access',userApiKey:null,orgApiKey:null,baseURL:`http://127.0.0.1:${(server.address() as {port:number}).port}`,allowTracking:false,disableVersionCheck:true})
++   return{id,client,requests,effects,async close(){server.closeAllConnections();const closed=once(server,'close');server.close();await closed}}}
++  await t.test('positive control uses the real SDK and one loopback execution',async()=>{
++   const f=await fixture(),s=await service()
++   try{const result=await budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic'},()=>s.client,f.key,{leaseMs:5000,timeoutMs:4500});evidence.cases.push({name:'positive control',result,requests:s.requests,effects:s.effects});assert.ok('data'in result,JSON.stringify(evidence.cases.at(-1)));assert.equal(s.effects.length,1)}finally{await s.close()}
++  })
++  await t.test('late preflight cannot send after another request expires its reservation',async()=>{
++   const f=await fixture(),received=deferred(),release=deferred(),s=await service(async()=>{received.resolve();await release.promise})
++   try{
++    const pending=budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic delayed'},()=>s.client,f.key,{leaseMs:5000,timeoutMs:4500})
++    await received.promise
++    const old=(await pool.query('SELECT id,state FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[f.owner,f.key])).rows[0]
++    await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[old.id])
++    const competitor=await store.reserve({ownerId:f.owner,key:randomUUID(),resource:'composio.action',binding:{competitor:true}});await store.activate(f.owner,competitor.id)
++    release.resolve();const result=await pending
++    const state=(await pool.query('SELECT state,settled_units FROM quota_reservations WHERE id=$1',[old.id])).rows[0]
++    evidence.cases.push({name:'late preflight',result,oldBefore:old,oldAfter:state,competitor:competitor.id,requests:s.requests,effects:s.effects})
++    assert.equal(s.effects.length,0,'expired preflight must never dispatch a tool HTTP request')
++    assert.ok('error'in result);assert.equal(state.state,'uncertain');assert.equal(state.settled_units,'1')
++   }finally{release.resolve();await s.close()}
++  })
++  await t.test('SDK-internal schema preflight is fenced at its final beforeExecute hook',async()=>{
++   const f=await fixture(),received=deferred(),release=deferred(),s=await service(undefined,undefined,async count=>{if(count===2){received.resolve();await release.promise}})
++   try{
++    const pending=budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic hidden schema delay'},()=>s.client,f.key,{leaseMs:5000,timeoutMs:4500})
++    await received.promise
++    const old=(await pool.query('SELECT id FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[f.owner,f.key])).rows[0]
++    await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[old.id])
++    const competitor=await store.reserve({ownerId:f.owner,key:randomUUID(),resource:'composio.action',binding:{competitor:true}});await store.activate(f.owner,competitor.id)
++    release.resolve();const result=await pending
++    const effectCount=Number((await pool.query('SELECT count(*) n FROM quota_test_effects WHERE service_id=$1',[s.id])).rows[0].n)
++    evidence.cases.push({name:'SDK schema preflight',result,requests:s.requests,effectCount})
++    assert.equal(effectCount,0);assert.deepEqual(result,{error:'quotaLeaseLost'})
++   }finally{release.resolve();await s.close()}
++  })
++  await t.test('deadline aborts actual preflight transport, with no late execution continuation',async()=>{
++   const f=await fixture(),lateResponse=deferred();let closedBeforeResponse=false
++   const s=await service(async res=>{res.on('close',()=>{if(!res.writableEnded)closedBeforeResponse=true});await delay(1500);lateResponse.resolve()})
++   try{
++    const result=await budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic deadline'},()=>s.client,f.key,{leaseMs:5000,timeoutMs:1000})
++    await lateResponse.promise;await delay(30)
++    const state=(await pool.query('SELECT state,settled_units FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[f.owner,f.key])).rows[0]
++    evidence.cases.push({name:'transport deadline',result,closedBeforeResponse,state,requests:s.requests,effects:s.effects})
++    assert.equal(s.effects.length,0);assert.equal(closedBeforeResponse,true,'AbortSignal must cancel the real HTTP socket')
++    assert.ok('error'in result);assert.equal(state.state,'refunded');assert.equal(state.settled_units,'0')
++   }finally{await s.close()}
++  })
++  await t.test('deadline cancels a response body stalled after actual HTTP headers',async()=>{
++   const f=await fixture(),lateResponse=deferred();let closedBeforeResponse=false
++   const s=await service(async res=>{
++    res.setHeader('content-type','application/json');res.writeHead(200);res.write('{"items":')
++    res.on('close',()=>{if(!res.writableEnded)closedBeforeResponse=true})
++    await delay(1500);lateResponse.resolve()
++   })
++   try{
++    const started=Date.now()
++    const result=await budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic stalled body'},()=>s.client,f.key,{leaseMs:5000,timeoutMs:1000})
++    const duration=Date.now()-started
++    await lateResponse.promise;await delay(30)
++    const state=(await pool.query('SELECT state,settled_units FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[f.owner,f.key])).rows[0]
++    evidence.cases.push({name:'headers then stalled body',result,duration,closedBeforeResponse,state,requests:s.requests,effects:s.effects})
++    assert.equal(closedBeforeResponse,true,'whole-operation deadline must cancel body I/O after headers')
++    assert.equal(s.effects.length,0);assert.equal(s.requests.some(r=>r.startsWith('POST')),false)
++    assert.deepEqual(result,{error:'integrationTimedOut'});assert.deepEqual(state,{state:'refunded',settled_units:'0'})
++   }finally{await s.close()}
++  })
++  await t.test('actual SDK-wrapped HTTP 429 refunds and persists shared Retry-After without retry',async()=>{
++   const f=await fixture(),s=await service(undefined,undefined,undefined,429)
++   try{
++    const result=await budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic rate rejection'},()=>s.client,f.key,{leaseMs:5000,timeoutMs:4500})
++    const state=(await pool.query('SELECT state,settled_units FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[f.owner,f.key])).rows[0]
++    const retry=await budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic subsequent request'},()=>s.client,randomUUID(),{leaseMs:5000,timeoutMs:4500})
++    const backoff=(await pool.query('SELECT retry_at>clock_timestamp() AS active FROM quota_backoffs WHERE workspace_id=$1',[f.workspace])).rows[0]
++    evidence.cases.push({name:'SDK wrapped HTTP 429',result,retry,state,backoff,requests:s.requests,effects:s.effects})
++    assert.equal(s.effects.length,0);assert.equal(state.state,'refunded');assert.equal(state.settled_units,'0');assert.deepEqual(retry,{error:'providerBackoff'});assert.equal(backoff?.active,true)
++    assert.equal(s.requests.filter(r=>r.startsWith('POST')).length,1,'SDK and wrapper must not retry the rejection')
++   }finally{await s.close()}
++  })
++  await t.test('an invoked HTTP effect with a lost response remains uncertain and cannot resend',async()=>{
++   const f=await fixture(),executed=deferred(),release=deferred(),controller=new AbortController()
++   const s=await service(undefined,async()=>{executed.resolve();await release.promise})
++   let pending:ReturnType<typeof budgetedComposioAction>|undefined
++   try{
++    pending=budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic uncertain effect'},()=>s.client,f.key,{leaseMs:10000,timeoutMs:9000,signal:controller.signal})
++    // Test-only stage barrier: always await the operation and release the HTTP
++    // handler in finally. The production path never races a background task.
++    const reached=await Promise.race([executed.promise.then(()=>true),pending.then(()=>false)])
++    assert.equal(reached,true,'controlled effect must happen before response loss is injected')
++    controller.abort(new DOMException('Synthetic response loss after effect','TimeoutError'))
++    const result=await pending
++    const state=(await pool.query('SELECT state,settled_units FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[f.owner,f.key])).rows[0]
++    const replay=await budgetedComposioAction(store,f.owner,'search_notion_pages',{query:'synthetic uncertain effect'},()=>s.client,f.key,{leaseMs:10000,timeoutMs:9000})
++    const effectCount=Number((await pool.query('SELECT count(*) n FROM quota_test_effects WHERE service_id=$1',[s.id])).rows[0].n)
++    evidence.cases.push({name:'invoked uncertain effect',result,replay,state,effectCount,requests:s.requests})
++    assert.equal(effectCount,1);assert.deepEqual(result,{error:'integrationTimedOut'});assert.equal(state.state,'uncertain');assert.equal(state.settled_units,'1');assert.deepEqual(replay,{error:'quotaOutcomeUncertain'})
++   }finally{controller.abort();release.resolve();await pending;await s.close()}
++
++  })
++ }finally{evidence.blockedNetworkAttempts=(await readFile(network,'utf8')).trim().split('\n').filter(Boolean).map(line=>JSON.parse(line));await writeFile('quota-composio-evidence.json',JSON.stringify(evidence,null,2));await pool.end();await admin.end();assert.deepEqual(evidence.blockedNetworkAttempts,[])}
++})
+diff --git a/lib/quota/composio.ts b/lib/quota/composio.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..6306485d4f02c95f2edfbb0646c865d26c5bce33
+--- /dev/null
++++ b/lib/quota/composio.ts
+@@ -0,0 +1,58 @@
++import { randomUUID } from 'node:crypto'
++import { executeComposioAction, type ComposioActionName, type ComposioActionClient, type ComposioActionResult } from '@/lib/composio-actions'
++import { QuotaStore } from './store'
++import { QuotaError, quotaFailure } from './errors'
++
++/** Production and controlled-HTTP tests share this path. The deadline covers
++ * the entire SDK operation; cancellation reaches its actual HTTP transport. */
++export async function budgetedComposioAction(store: QuotaStore, userId: string, action: ComposioActionName, input: unknown,
++  createClient: () => ComposioActionClient | null, operationKey: string = randomUUID(), options: { leaseMs?: number; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<ComposioActionResult> {
++  const leaseMs = options.leaseMs ?? 300000, timeoutMs = options.timeoutMs ?? 270000
++  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs >= leaseMs) throw new QuotaError('quotaInvalidDeadline', 400)
++  let quota: Awaited<ReturnType<QuotaStore['activate']>>
++  try {
++    const pending = await store.reserve({ ownerId: userId, resource: 'composio.action', key: operationKey, binding: { action, input }, leaseMs })
++    // Activation admits one preparation owner. Duplicate callers cannot perform
++    // unmetered parallel account/schema fetches against the same logical key.
++    quota = await store.activate(userId, pending.id)
++  } catch (error) {
++    if (error instanceof QuotaError) return { error: error.code }
++    throw error
++  }
++  const deadline = Math.min(Date.now() + timeoutMs, quota.expires_at.getTime() - (leaseMs - timeoutMs))
++  const controller = new AbortController()
++  const timer = setTimeout(() => controller.abort(new DOMException('Composio operation deadline exceeded', 'TimeoutError')), Math.max(0, deadline - Date.now()))
++  const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal
++  let invoked = false, observedFailure: unknown
++  const checkDeadline = () => {
++    signal.throwIfAborted()
++    if (Date.now() >= deadline) throw new DOMException('Composio operation deadline exceeded', 'TimeoutError')
++  }
++  try {
++    checkDeadline()
++    const result = await executeComposioAction(userId, action, input, createClient(), {
++      signal,
++      beforeExecute: async () => {
++        checkDeadline()
++        // This SDK hook runs after its own schema/file preflight, immediately
++        // before dispatch. It does not renew or extend the original lease.
++        await store.revalidate(userId, quota.id)
++        checkDeadline()
++        invoked = true
++      },
++      onFailure: async error => { observedFailure = error },
++    })
++    const rejection = observedFailure ? quotaFailure(observedFailure) : undefined
++    const outcome = !invoked ? 'refunded' : observedFailure ? rejection!.outcome : 'error' in result ? 'uncertain' : 'settled'
++    await store.finish(userId, quota.id, outcome, undefined, rejection?.retryAfter)
++    if (observedFailure instanceof QuotaError) return { error: observedFailure.code }
++    if (observedFailure && signal.aborted) return { error: 'integrationTimedOut' }
++    return result
++  } catch (error) {
++    const failure = quotaFailure(error)
++    await store.finish(userId, quota.id, invoked ? failure.outcome : 'refunded', undefined, failure.retryAfter)
++    if (error instanceof QuotaError) return { error: error.code }
++    if (signal.aborted || (error instanceof Error && error.name === 'TimeoutError')) return { error: 'integrationTimedOut' }
++    throw error
++  } finally { clearTimeout(timer) }
++}
+diff --git a/lib/quota/config.ts b/lib/quota/config.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7e3a1d34945dd7d1a355c0bed6892f59b3c5903f
+--- /dev/null
++++ b/lib/quota/config.ts
+@@ -0,0 +1,50 @@
++import { randomUUID } from 'node:crypto'
++import type { Pool } from 'pg'
++import { z } from 'zod'
++import { QuotaError } from './errors'
++
++export const quotaPolicySchema = z.object({
++  windowStart: z.iso.datetime({ offset: true }), windowEnd: z.iso.datetime({ offset: true }),
++  budgetUnits: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
++  concurrencyLimit: z.number().int().min(1).max(10000),
++  rateLimit: z.number().int().min(1).max(1000000), rateWindowSeconds: z.number().int().min(1).max(86400),
++  resources: z.record(z.string().min(1).max(128), z.object({ units: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER), unknownCostApproved: z.literal(true) }).strict()),
++  paused: z.boolean(), owners: z.array(z.string().min(1).max(256)).min(1).max(1000),
++  override: z.object({ units: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER), until: z.iso.datetime({ offset: true }), reason: z.string().trim().min(1).max(1000) }).strict().nullable(),
++}).strict().refine(p => Date.parse(p.windowEnd) > Date.parse(p.windowStart) && (!p.override || Date.parse(p.override.until) <= Date.parse(p.windowEnd)), 'Invalid budget window')
++
++export async function configureQuota(pool: Pool, workspaceId: string, actor: string, policy: z.infer<typeof quotaPolicySchema>) {
++  const c = await pool.connect()
++  try {
++    await c.query('BEGIN')
++    const { rows: [old] } = await c.query('SELECT window_start, window_end FROM quota_tenants WHERE workspace_id=$1 FOR UPDATE', [workspaceId])
++    // An active window cannot be slid forward to reset usage. Roll over only after expiry.
++    const { rows: [{ now }] } = await c.query('SELECT clock_timestamp() AS now')
++    if (old && old.window_end > now && (old.window_start.getTime() !== Date.parse(policy.windowStart) || old.window_end.getTime() !== Date.parse(policy.windowEnd))) throw new QuotaError('quotaWindowImmutable', 409)
++    const { rows: [allocation] } = await c.query('SELECT * FROM quota_allocations WHERE workspace_id=$1 FOR SHARE', [workspaceId])
++    if (!allocation || allocation.revoked_at || allocation.expires_at <= now || Date.parse(policy.windowEnd) > allocation.expires_at.getTime()
++      || BigInt(policy.override?.units ?? policy.budgetUnits) > BigInt(allocation.max_budget_units)
++      || BigInt(policy.budgetUnits) > BigInt(allocation.max_budget_units) || policy.concurrencyLimit > allocation.max_concurrency || policy.rateLimit > allocation.max_rate_limit || policy.rateWindowSeconds !== allocation.rate_window_seconds
++      || Object.entries(policy.resources).some(([name,rule]) => !Object.hasOwn(allocation.resources,name) || allocation.resources[name].unknownCostApproved !== true || allocation.resources[name].units !== rule.units)) {
++      throw new QuotaError('quotaAllocationExceeded', 403)
++    }
++    if (Date.parse(policy.windowEnd) <= now.getTime() || Date.parse(policy.windowStart) > now.getTime() || (policy.override && Date.parse(policy.override.until) <= now.getTime())) throw new QuotaError('quotaInvalidWindow', 400)
++    // Keep all owner locks in a stable order; bindings cannot be reassigned through this API.
++    for (const owner of [...new Set(policy.owners)].sort()) {
++      await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`quota-owner:${owner}`])
++      const { rows: [bound] } = await c.query('SELECT workspace_id FROM quota_owners WHERE owner_id=$1', [owner])
++      if (bound && bound.workspace_id !== workspaceId) throw new QuotaError('quotaOwnerAlreadyBound', 409)
++    }
++    await c.query(`INSERT INTO quota_tenants (workspace_id,window_start,window_end,budget_units,concurrency_limit,rate_limit,rate_window_seconds,resources,paused,override_units,override_until,override_by,override_reason)
++      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(workspace_id) DO UPDATE SET
++      window_start=excluded.window_start,window_end=excluded.window_end,budget_units=excluded.budget_units,concurrency_limit=excluded.concurrency_limit,
++      rate_limit=excluded.rate_limit,rate_window_seconds=excluded.rate_window_seconds,resources=excluded.resources,paused=excluded.paused,
++      override_units=excluded.override_units,override_until=excluded.override_until,override_by=excluded.override_by,override_reason=excluded.override_reason`,
++    [workspaceId,policy.windowStart,policy.windowEnd,policy.budgetUnits,policy.concurrencyLimit,policy.rateLimit,policy.rateWindowSeconds,policy.resources,policy.paused,
++      policy.override?.units ?? null,policy.override?.until ?? null,policy.override ? actor : null,policy.override?.reason ?? null])
++    for (const owner of [...new Set(policy.owners)].sort()) await c.query('INSERT INTO quota_owners(owner_id,workspace_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [owner,workspaceId])
++    await c.query('INSERT INTO quota_policy_events(id,workspace_id,actor,policy) VALUES ($1,$2,$3,$4)', [randomUUID(),workspaceId,actor,policy])
++    await c.query('COMMIT')
++  } catch (error) { await c.query('ROLLBACK'); throw error }
++  finally { c.release() }
++}
+diff --git a/lib/quota/errors.ts b/lib/quota/errors.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..51fef931d9dbbfc6004031ac18ddbdb84ba9338f
+--- /dev/null
++++ b/lib/quota/errors.ts
+@@ -0,0 +1,41 @@
++export class QuotaError extends Error {
++  constructor(readonly code: string, readonly status = 429, readonly retryAfter = 1) {
++    super(code)
++    this.name = 'QuotaError'
++  }
++}
++
++export function quotaResponse(error: unknown): Response {
++  if (!(error instanceof QuotaError)) throw error
++  return Response.json({ error: error.code, unit: 'admission_unit' }, {
++    status: error.status,
++    headers: { 'Retry-After': String(Math.max(1, Math.ceil(error.retryAfter))), 'Cache-Control': 'private, no-store' },
++  })
++}
++
++/** RFC Retry-After seconds or HTTP date. Invalid/absent values back off for 60s. */
++export function retryAfterSeconds(value: string | null | undefined, now = Date.now()): number {
++  if (value && /^\d+(\.\d+)?$/.test(value.trim())) return Math.max(1, Math.ceil(Number(value)))
++  const date = value ? Date.parse(value) : NaN
++  return Number.isFinite(date) ? Math.max(1, Math.ceil((date - now) / 1000)) : 60
++}
++
++export function quotaFailure(error: unknown): { outcome: 'refunded' | 'uncertain'; retryAfter?: number } {
++  // AI errors carry statusCode/responseHeaders; Composio wraps its HTTP API
++  // error in cause with status/Headers. Inspect only a bounded cause chain,
++  // stopping at the first explicit HTTP status. Unknown/partial work stays held.
++  let current = error
++  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth++) {
++    const e = current as { statusCode?: number; status?: number; responseHeaders?: Record<string,string>; headers?: Headers; cause?: unknown }
++    const status = e.statusCode ?? e.status
++    if (typeof status === 'number' && status >= 100 && status <= 599) {
++      if ([401, 402, 403, 429].includes(status)) {
++        const retryAfter = e.responseHeaders?.['retry-after'] ?? e.headers?.get?.('retry-after')
++        return { outcome: 'refunded', ...(status === 429 ? { retryAfter: retryAfterSeconds(retryAfter) } : {}) }
++      }
++      return { outcome: 'uncertain' }
++    }
++    current = e.cause
++  }
++  return { outcome: 'uncertain' }
++}
+diff --git a/lib/quota/restart-worker.ts b/lib/quota/restart-worker.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..11543795506311658371ea4c62e7df11a6015295
+--- /dev/null
++++ b/lib/quota/restart-worker.ts
+@@ -0,0 +1,24 @@
++import { Pool } from 'pg'
++import { QuotaStore } from './store'
++async function main() {
++const pool=new Pool({connectionString:process.env.QUOTA_TEST_DATABASE_URL,max:2})
++const owner=process.env.QUOTA_TEST_OWNER!,key=process.env.QUOTA_TEST_KEY!
++const store=new QuotaStore(pool,async (owner,workspace)=>Boolean((await pool.query('SELECT 1 FROM quota_test_members WHERE owner_id=$1 AND workspace_id=$2 AND active',[owner,workspace])).rowCount))
++const request={ownerId:owner,key,resource:'agent.turn',binding:{}}
++if (process.env.QUOTA_TEST_PHASE === 'claim-cas') {
++  await store.reserveBound(request, async (client, r) => {
++    await client.query(`UPDATE quota_test_claims SET status='preparing',quota_id=$2 WHERE id=$1 AND status='queued'`, [key,r.id])
++    console.log('READY')
++    await new Promise(() => {})
++  })
++} else { const r=await store.reserve(request);if(process.env.QUOTA_TEST_PHASE!=='legacy-claim-reserved')await store.activate(owner,r.id) }
++if(process.env.QUOTA_TEST_PHASE==='after-send') {
++  const response=await fetch(process.env.QUOTA_TEST_EFFECT_URL!)
++  if(!response.ok)throw new Error('Effect failed')
++  await response.text()
++}
++console.log('READY')
++await new Promise(()=>{})
++
++}
++void main().catch(error => { console.error(error); process.exitCode = 1 })
+diff --git a/lib/quota/runtime.ts b/lib/quota/runtime.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..1ef00f4c49a716081ec32fedc2e084f248f701eb
+--- /dev/null
++++ b/lib/quota/runtime.ts
+@@ -0,0 +1,40 @@
++import 'server-only'
++import { randomUUID } from 'node:crypto'
++import { and, eq } from 'drizzle-orm'
++import { pool } from '@/lib/db'
++import { workspaceDb } from '@/lib/workspace-db'
++import { workspaceMembers } from '@/lib/db/workspace-schema'
++import { QuotaStore, type QuotaRequest } from './store'
++import { QuotaError, quotaFailure } from './errors'
++
++export const tenantQuotas = new QuotaStore(pool, async (ownerId, workspaceId) => {
++  const [member] = await workspaceDb.select({ id: workspaceMembers.userId }).from(workspaceMembers)
++    .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, ownerId), eq(workspaceMembers.status, 'active'))).limit(1)
++  return Boolean(member)
++})
++
++export async function beginQuota(input: QuotaRequest) {
++  const reservation = await tenantQuotas.reserve(input)
++  return tenantQuotas.activate(input.ownerId, reservation.id)
++}
++
++export { quotaFailure } from './errors'
++
++export async function withTenantQuota<T>(ownerId: string, resource: string, binding: unknown, action: () => Promise<T>, key: string = randomUUID()): Promise<T> {
++  const reservation = await beginQuota({ ownerId, resource, binding, key })
++  let value: T
++  try { value = await action() }
++  catch (error) {
++    const failure = quotaFailure(error)
++    await tenantQuotas.finish(ownerId, reservation.id, failure.outcome, undefined, failure.retryAfter)
++    throw error
++  }
++  await tenantQuotas.finish(ownerId, reservation.id, 'settled')
++  return value
++}
++
++/** Safe for tools: callers see a stable actionable code, never raw SDK messages. */
++export function quotaToolError(error: unknown) {
++  if (!(error instanceof QuotaError)) throw error
++  return { error: error.code, retryAfter: error.retryAfter }
++}
+diff --git a/lib/quota/store.test.ts b/lib/quota/store.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e504defcc52fd943ef89de0d97fc9ee2fe202b9f
+--- /dev/null
++++ b/lib/quota/store.test.ts
+@@ -0,0 +1,264 @@
++import assert from 'node:assert/strict'
++import { randomUUID } from 'node:crypto'
++import { readFile } from 'node:fs/promises'
++import { spawn } from 'node:child_process'
++import { createServer } from 'node:http'
++import { once } from 'node:events'
++import test from 'node:test'
++import { Pool } from 'pg'
++import { QuotaStore } from './store'
++import { QuotaError, quotaResponse, retryAfterSeconds, quotaFailure } from './errors'
++import { configureQuota, quotaPolicySchema } from './config'
++
++const url = process.env.QUOTA_TEST_DATABASE_URL
++if (url) {
++  const target = new URL(url)
++  assert.ok(['127.0.0.1','localhost','[::1]'].includes(target.hostname))
++  assert.ok(/(?:_e2e|_quota215)$/.test(target.pathname), 'Only an explicitly isolated quota test database is allowed')
++}
++
++test('Retry-After parses delta/date, rounds safely and fails conservatively', () => {
++  assert.equal(retryAfterSeconds('3.2'),4)
++  assert.equal(retryAfterSeconds('Sun, 25 Oct 2026 00:00:30 GMT',Date.parse('2026-10-25T00:00:00Z')),30)
++  assert.equal(retryAfterSeconds(null),60)
++  assert.equal(retryAfterSeconds('junk'),60)
++  assert.equal(retryAfterSeconds('0'),1)
++  assert.equal(quotaResponse(new QuotaError('limited',429,3.2)).headers.get('Retry-After'),'4')
++  assert.deepEqual(quotaFailure({statusCode:429,responseHeaders:{'retry-after':'3.2'}}),{outcome:'refunded',retryAfter:4})
++  assert.deepEqual(quotaFailure({cause:{status:429,headers:new Headers({'retry-after':'30'})}}),{outcome:'refunded',retryAfter:30})
++  assert.deepEqual(quotaFailure({statusCode:500,cause:{status:429}}),{outcome:'uncertain'})
++  const cycle: {cause?: unknown} = {};cycle.cause=cycle
++  assert.deepEqual(quotaFailure(cycle),{outcome:'uncertain'})
++})
++
++test('real PostgreSQL quota contention, restart, retries and authorization', { skip: !url, timeout: 120000 }, async t => {
++  const admin = new Pool({ connectionString: url, max: 1 })
++  const schema = `quota_${randomUUID().replaceAll('-','')}`
++  await admin.query(`CREATE SCHEMA "${schema}"`)
++  const target = new URL(url!); target.searchParams.set('options',`-c search_path=${schema}`)
++  const pool = new Pool({ connectionString: target.toString(), max: 20 })
++  const authorize = async (owner: string, workspace: string) => Boolean((await pool.query('SELECT 1 FROM quota_test_members WHERE owner_id=$1 AND workspace_id=$2 AND active', [owner,workspace])).rowCount)
++  const store = new QuotaStore(pool, authorize)
++  try {
++    await pool.query('CREATE TABLE agent_runs (id uuid PRIMARY KEY)')
++    const migration = await readFile(new URL('../../drizzle/20261025165100_tenant_quotas.sql', import.meta.url),'utf8')
++    await pool.query(migration); await pool.query(migration)
++    await pool.query('CREATE TABLE quota_test_members(owner_id text PRIMARY KEY,workspace_id uuid NOT NULL,active boolean NOT NULL DEFAULT true)')
++    await pool.query('CREATE TABLE quota_test_effects(operation_id text PRIMARY KEY,created_at timestamptz DEFAULT clock_timestamp())')
++    await pool.query('CREATE TABLE quota_test_claims(id uuid PRIMARY KEY,status text NOT NULL,quota_id uuid)')
++    const fixture = async (changes: Record<string,unknown> = {}) => {
++      const owner = randomUUID(), workspace = randomUUID()
++      const policy = quotaPolicySchema.parse({ windowStart:new Date(Date.now()-60000).toISOString(),windowEnd:new Date(Date.now()+3600000).toISOString(),budgetUnits:100,
++        concurrencyLimit:3,rateLimit:100,rateWindowSeconds:60, resources:{ 'agent.turn':{units:1,unknownCostApproved:true},'coordinator.model':{units:1,unknownCostApproved:true},'daemon.run':{units:1,unknownCostApproved:true} },paused:false,owners:[owner],override:null,...changes })
++      await pool.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,rate_window_seconds,resources,expires_at,granted_by,reason)
++        VALUES ($1,100,100,1000,60,$2,now()+interval '2 hours','test-operator','isolated synthetic allocation')`,[workspace,policy.resources])
++      await configureQuota(pool,workspace,owner,policy)
++      await pool.query('INSERT INTO quota_test_members(owner_id,workspace_id) VALUES ($1,$2)',[owner,workspace])
++      return { owner,workspace,policy }
++    }
++    const request = (owner: string, key: string = randomUUID(), resource='agent.turn', binding: unknown={}) => ({ ownerId:owner,key,resource,binding })
++    const state = async (id:string) => (await pool.query('SELECT * FROM quota_reservations WHERE id=$1',[id])).rows[0]
++
++    await t.test('10 simultaneous mixed entry requests share tenant concurrency; other tenant proceeds', async () => {
++      const a=await fixture(), b=await fixture()
++      const results = await Promise.allSettled(Array.from({length:10},(_,i)=>store.reserve(request(a.owner,randomUUID(),['agent.turn','coordinator.model','daemon.run'][i%3]))))
++      assert.equal(results.filter(r=>r.status==='fulfilled').length,3)
++      assert.ok(results.filter(r=>r.status==='rejected').every(r=>r.reason.code==='quotaConcurrencyExceeded'))
++      assert.equal((await store.reserve(request(b.owner))).state,'reserved')
++      assert.equal(Number((await pool.query("SELECT count(*) AS n FROM quota_reservations WHERE workspace_id=$1 AND state='reserved'",[a.workspace])).rows[0].n),3)
++    })
++    await t.test('same key gets one reservation and exactly one activation; changed binding rejected',async()=>{
++      const {owner}=await fixture(), key=randomUUID()
++      const all=await Promise.all(Array.from({length:10},()=>store.reserve(request(owner,key))))
++      assert.equal(new Set(all.map(r=>r.id)).size,1)
++      const activated=await Promise.allSettled(all.map(r=>store.activate(owner,r.id)))
++      assert.equal(activated.filter(r=>r.status==='fulfilled').length,1)
++      await assert.rejects(store.reserve(request(owner,key,'agent.turn',{changed:true})),{code:'quotaKeyConflict'})
++      await Promise.all(Array.from({length:10},()=>store.finish(owner,all[0].id,'settled')))
++      assert.equal((await state(all[0].id)).settled_units,'1')
++      assert.equal((await store.reserve(request(owner,key))).id,all[0].id)
++      await assert.rejects(store.activate(owner,all[0].id),{code:'quotaAlreadyDispatched'})
++    })
++    await t.test('reserve budget is atomic across owners within the same workspace',async()=>{
++      const {owner,workspace}=await fixture({budgetUnits:2,concurrencyLimit:20})
++      const member=randomUUID()
++      await pool.query('INSERT INTO quota_owners(owner_id,workspace_id) VALUES ($1,$2)',[member,workspace])
++      await pool.query('INSERT INTO quota_test_members(owner_id,workspace_id) VALUES ($1,$2)',[member,workspace])
++      const all=await Promise.allSettled(Array.from({length:10},(_,i)=>store.reserve(request(i%2?owner:member))))
++      assert.equal(all.filter(r=>r.status==='fulfilled').length,2)
++      assert.ok(all.filter(r=>r.status==='rejected').every(r=>r.reason.code==='quotaBudgetExhausted'))
++    })
++    await t.test('before-send refunds and contradictory settlement stays immutable',async()=>{
++      const {owner}=await fixture({budgetUnits:1})
++      const r=await store.reserve(request(owner))
++      await store.finish(owner,r.id,'refunded')
++      await store.finish(owner,r.id,'settled')
++      assert.equal((await state(r.id)).settled_units,'0')
++      await store.reserve(request(owner))
++    })
++    await t.test('expiry before send refunds; after send consumes once and frees concurrency',async()=>{
++      const {owner}=await fixture({concurrencyLimit:1})
++      const pre=await store.reserve(request(owner))
++      await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[pre.id])
++      const sent=await store.reserve(request(owner));await store.activate(owner,sent.id)
++      assert.equal((await state(pre.id)).state,'refunded')
++      await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[sent.id])
++      await store.reserve(request(owner))
++      assert.equal((await state(sent.id)).state,'uncertain')
++      assert.equal((await state(sent.id)).settled_units,'1')
++      await assert.rejects(store.renew(owner,sent.id,90000),{code:'quotaLeaseLost'})
++      await store.finish(owner,sent.id,'refunded')
++      assert.equal((await state(sent.id)).state,'uncertain')
++    })
++    await t.test('provider 429 persists tenant/resource Retry-After across process-independent stores',async()=>{
++      const {owner}=await fixture()
++      const r=await store.reserve(request(owner));await store.activate(owner,r.id)
++      await store.finish(owner,r.id,'refunded',undefined,25)
++      const restarted=new QuotaStore(pool,authorize)
++      await assert.rejects(restarted.reserve(request(owner)),(e:QuotaError)=>e.code==='providerBackoff'&&e.retryAfter>20)
++      await restarted.reserve(request(owner,randomUUID(),'daemon.run'))
++      assert.equal((await state(r.id)).settled_units,'0')
++    })
++    await t.test('rate is not refunded by failures and survives restarts',async()=>{
++      const {owner}=await fixture({rateLimit:1})
++      const r=await store.reserve(request(owner));await store.finish(owner,r.id,'refunded')
++      await assert.rejects(new QuotaStore(pool,authorize).reserve(request(owner)),{code:'quotaRateExceeded'})
++    })
++    await t.test('operator allocation and override are rechecked at activation/renewal; tenant admins cannot raise caps',async()=>{
++      const f=await fixture({budgetUnits:0})
++      await assert.rejects(configureQuota(pool,f.workspace,f.owner,{...f.policy,rateWindowSeconds:1}),{code:'quotaAllocationExceeded'})
++      await assert.rejects(configureQuota(pool,f.workspace,f.owner,{...f.policy,budgetUnits:101}),{code:'quotaAllocationExceeded'})
++      await assert.rejects(configureQuota(pool,f.workspace,f.owner,{...f.policy,resources:{'agent.turn':{units:0,unknownCostApproved:true}}}),{code:'quotaAllocationExceeded'})
++      await configureQuota(pool,f.workspace,f.owner,{...f.policy,override:{units:1,until:new Date(Date.now()+60000).toISOString(),reason:'synthetic authorized override'}})
++      const r=await store.reserve(request(f.owner))
++      await pool.query("UPDATE quota_tenants SET override_until=clock_timestamp()-interval '1 second' WHERE workspace_id=$1",[f.workspace])
++      await assert.rejects(store.activate(f.owner,r.id),{code:'quotaBudgetExhausted'})
++      await store.finish(f.owner,r.id,'refunded')
++      await pool.query("UPDATE quota_tenants SET budget_units=1 WHERE workspace_id=$1",[f.workspace])
++      const active=await store.reserve(request(f.owner));await store.activate(f.owner,active.id)
++      await pool.query('UPDATE quota_allocations SET revoked_at=clock_timestamp() WHERE workspace_id=$1',[f.workspace])
++      await assert.rejects(store.renew(f.owner,active.id,90000),{code:'quotaAllocationUnavailable'})
++      await store.finish(f.owner,active.id,'uncertain')
++      assert.equal((await state(active.id)).settled_units,'1')
++    })
++    await t.test('rolling tenant windows cannot reset the platform allocation lifetime cap',async()=>{
++      const f=await fixture({budgetUnits:1})
++      await pool.query('UPDATE quota_allocations SET max_budget_units=2 WHERE workspace_id=$1',[f.workspace])
++      for(let i=0;i<2;i++) {
++        const r=await store.reserve(request(f.owner));await store.activate(f.owner,r.id);await store.finish(f.owner,r.id,'settled')
++        await pool.query("UPDATE quota_tenants SET window_start=clock_timestamp()-interval '2 seconds',window_end=clock_timestamp()-interval '1 second' WHERE workspace_id=$1",[f.workspace])
++        await configureQuota(pool,f.workspace,f.owner,{...f.policy,windowStart:new Date().toISOString()})
++      }
++      await assert.rejects(store.reserve(request(f.owner)),{code:'quotaBudgetExhausted'})
++    })
++    await t.test('SQL write fault rolls back reservation and releases the tenant lock',async()=>{
++      const {owner}=await fixture()
++      await pool.query(`CREATE FUNCTION quota_test_write_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.request_key='synthetic-write-fault' THEN RAISE EXCEPTION 'injected quota insert failure'; END IF; RETURN NEW; END $$`)
++      await pool.query('CREATE TRIGGER quota_test_write_fault BEFORE INSERT ON quota_reservations FOR EACH ROW EXECUTE FUNCTION quota_test_write_fault()')
++      await assert.rejects(store.reserve(request(owner,'synthetic-write-fault')),/injected quota insert failure/)
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM quota_reservations WHERE owner_id=$1',[owner])).rows[0].n),0)
++      await store.reserve(request(owner))
++    })
++    await t.test('SIGKILL inside admission/activation/domain CAS leaves no orphan and allows one bounded retry',async()=>{
++      const {owner}=await fixture(),key=randomUUID()
++      await pool.query("INSERT INTO quota_test_claims(id,status) VALUES($1,'queued')",[key])
++      const child=spawn(process.execPath,['--import','tsx',new URL('./restart-worker.ts',import.meta.url).pathname],{cwd:new URL('../..',import.meta.url),env:{...process.env,QUOTA_TEST_DATABASE_URL:target.toString(),QUOTA_TEST_OWNER:owner,QUOTA_TEST_KEY:key,QUOTA_TEST_PHASE:'claim-cas'},stdio:['ignore','pipe','pipe']})
++      let stderr='';child.stderr.on('data',chunk=>stderr+=chunk)
++      await new Promise<void>((resolve,reject)=>{child.stdout.on('data',chunk=>{if(String(chunk).includes('READY'))resolve()});child.once('exit',code=>reject(new Error(`claim worker exited ${code}: ${stderr}`)))})
++      const exited=once(child,'exit');child.kill('SIGKILL');assert.equal((await exited)[1],'SIGKILL')
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM quota_reservations WHERE owner_id=$1',[owner])).rows[0].n),0)
++      const before=(await pool.query('SELECT status,quota_id FROM quota_test_claims WHERE id=$1',[key])).rows[0]
++      assert.deepEqual(before,{status:'queued',quota_id:null})
++      const reservation=await store.reserveBound(request(owner,key),async (client, active)=>{
++        const result=await client.query("UPDATE quota_test_claims SET status='preparing',quota_id=$2 WHERE id=$1 AND status='queued' RETURNING id",[key,active.id])
++        assert.equal(result.rowCount,1)
++      })
++      const after=(await pool.query('SELECT status,quota_id FROM quota_test_claims WHERE id=$1',[key])).rows[0]
++      assert.deepEqual(after,{status:'preparing',quota_id:reservation.id})
++      await assert.rejects(store.reserveBound(request(owner,key),async()=>{throw new Error('must not bind twice')}),{code:'quotaAlreadyDispatched'})
++    })
++    await t.test('legacy reserved crash survives expiry and restart with one linked charge; unsafe states cannot recover',async()=>{
++      const {owner}=await fixture(),key=randomUUID(),input=request(owner,key)
++      await pool.query("INSERT INTO quota_test_claims(id,status) VALUES($1,'queued')",[key])
++      const child=spawn(process.execPath,['--import','tsx',new URL('./restart-worker.ts',import.meta.url).pathname],{cwd:new URL('../..',import.meta.url),env:{...process.env,QUOTA_TEST_DATABASE_URL:target.toString(),QUOTA_TEST_OWNER:owner,QUOTA_TEST_KEY:key,QUOTA_TEST_PHASE:'legacy-claim-reserved'},stdio:['ignore','pipe','pipe']})
++      let stderr='';child.stderr.on('data',chunk=>stderr+=chunk)
++      await new Promise<void>((resolve,reject)=>{child.stdout.on('data',chunk=>{if(String(chunk).includes('READY'))resolve()});child.once('exit',code=>reject(new Error(`legacy claim worker exited ${code}: ${stderr}`)))})
++      const exited=once(child,'exit');child.kill('SIGKILL');assert.equal((await exited)[1],'SIGKILL')
++      const original=(await pool.query('SELECT id,state FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[owner,key])).rows[0]
++      assert.equal(original.state,'reserved')
++      await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[original.id])
++      const restarted=new QuotaStore(pool,authorize)
++      const recovered=await restarted.reserveBound(input,async(client,active)=>{
++        const result=await client.query("UPDATE quota_test_claims SET status='preparing',quota_id=$2 WHERE id=$1 AND status='queued' AND quota_id IS NULL RETURNING id",[key,active.id]);assert.equal(result.rowCount,1)
++      },async client=>Boolean((await client.query("SELECT id FROM quota_test_claims WHERE id=$1 AND status='queued' AND quota_id IS NULL FOR UPDATE",[key])).rowCount))
++      assert.notEqual(recovered.id,original.id);assert.equal(recovered.state,'executing')
++      assert.deepEqual((await pool.query('SELECT state,settled_units FROM quota_reservations WHERE id=$1',[original.id])).rows[0],{state:'refunded',settled_units:'0'})
++      assert.equal(Number((await pool.query('SELECT sum(coalesce(settled_units,units)) n FROM quota_reservations WHERE owner_id=$1',[owner])).rows[0].n),1)
++      await restarted.finish(owner,recovered.id,'uncertain')
++      await assert.rejects(restarted.reserveBound(input,async()=>{throw new Error('cannot bind twice')},async()=>true),{code:'quotaOutcomeUncertain'})
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM quota_reservations WHERE owner_id=$1',[owner])).rows[0].n),2)
++      const denied=await fixture(),deniedInput=request(denied.owner)
++      const r=await restarted.reserve(deniedInput);await restarted.finish(denied.owner,r.id,'refunded')
++      await assert.rejects(restarted.reserveBound(deniedInput,async()=>{throw new Error('cannot bind without domain proof')},async()=>false),{code:'quotaUnsentProofFailed'})
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM quota_reservations WHERE owner_id=$1',[denied.owner])).rows[0].n),1)
++    })
++    await t.test('unknown configuration/cost, suspension, workspace mismatch and expired override fail closed',async()=>{
++      await assert.rejects(store.reserve(request(randomUUID())),{code:'quotaNotConfigured'})
++      const {owner,workspace}=await fixture()
++      await assert.rejects(store.reserve(request(owner,randomUUID(),'cloud.unpriced')),{code:'quotaCostApprovalRequired'})
++      const r=await store.reserve(request(owner))
++      await pool.query('UPDATE quota_test_members SET active=false WHERE owner_id=$1',[owner])
++      await assert.rejects(store.activate(owner,r.id),{code:'quotaAccessDenied'})
++      await store.finish(owner,r.id,'refunded') // Cleanup still works after revocation.
++      await pool.query('UPDATE quota_test_members SET active=true,workspace_id=$2 WHERE owner_id=$1',[owner,randomUUID()])
++      await assert.rejects(store.reserve(request(owner)),{code:'quotaAccessDenied'})
++      const a=await fixture({budgetUnits:0})
++      await pool.query("UPDATE quota_tenants SET override_units=1,override_until=clock_timestamp()-interval '1 second',override_by='admin',override_reason='test' WHERE workspace_id=$1",[a.workspace])
++      await assert.rejects(store.reserve(request(a.owner)),{code:'quotaBudgetExhausted'})
++      assert.ok(workspace)
++    })
++    await t.test('authorization is checked after a blocked tenant lock',async()=>{
++      const {owner,workspace}=await fixture()
++      const lock=await pool.connect();await lock.query('BEGIN');await lock.query('SELECT workspace_id FROM quota_tenants WHERE workspace_id=$1 FOR UPDATE',[workspace])
++      const pending=store.reserve(request(owner))
++      await pool.query('UPDATE quota_test_members SET active=false WHERE owner_id=$1',[owner])
++      await lock.query('COMMIT');lock.release()
++      await assert.rejects(pending,{code:'quotaAccessDenied'})
++    })
++    await t.test('configuration records actor, disallows active-window reset and owner reassignment',async()=>{
++      const {owner,workspace,policy}=await fixture()
++      await assert.rejects(configureQuota(pool,workspace,owner,{...policy,windowStart:new Date(Date.now()).toISOString()}),{code:'quotaWindowImmutable'})
++      const other=await fixture(); await assert.rejects(configureQuota(pool,other.workspace,owner,{...other.policy,owners:[owner]}),{code:'quotaOwnerAlreadyBound'})
++      assert.equal((await pool.query('SELECT actor FROM quota_policy_events WHERE workspace_id=$1',[workspace])).rows[0].actor,owner)
++    })
++    await t.test('real SIGKILL after dispatch before/after HTTP effect: no resend on restart',async()=>{
++      const server=createServer(async(req,res)=>{
++        const key=new URL(req.url!,'http://localhost').searchParams.get('operation')!
++        await pool.query('INSERT INTO quota_test_effects(operation_id) VALUES ($1)',[key])
++        res.end('accepted')
++      }); server.listen(0,'127.0.0.1');await once(server,'listening')
++      try {
++        for(const phase of ['before-send','after-send']) {
++          const {owner}=await fixture({concurrencyLimit:1}), key=randomUUID()
++          const child=spawn(process.execPath,['--import','tsx',new URL('./restart-worker.ts',import.meta.url).pathname],{
++            cwd:new URL('../..',import.meta.url),env:{...process.env,QUOTA_TEST_DATABASE_URL:target.toString(),QUOTA_TEST_OWNER:owner,QUOTA_TEST_KEY:key,QUOTA_TEST_PHASE:phase,QUOTA_TEST_EFFECT_URL:`http://127.0.0.1:${(server.address() as {port:number}).port}/?operation=${key}`},stdio:['ignore','pipe','pipe'],
++          })
++          let stderr='';child.stderr.on('data',chunk=>stderr+=chunk)
++          await new Promise<void>((resolve,reject)=>{
++            child.stdout.on('data',chunk=>{if(String(chunk).includes('READY'))resolve()})
++            child.once('exit',code=>reject(new Error(`worker exited ${code}: ${stderr}`)))
++          })
++          const exited=once(child,'exit');child.kill('SIGKILL');assert.equal((await exited)[1],'SIGKILL')
++          const existing=(await pool.query('SELECT * FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[owner,key])).rows[0]
++          await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[existing.id])
++          const replay=await new QuotaStore(pool,authorize).reserve(request(owner,key))
++          assert.equal(replay.id,existing.id);assert.equal(replay.state,'uncertain')
++          await assert.rejects(store.activate(owner,replay.id),{code:'quotaOutcomeUncertain'})
++          assert.equal(Number((await pool.query('SELECT count(*) AS n FROM quota_test_effects WHERE operation_id=$1',[key])).rows[0].n),phase==='before-send'?0:1)
++          await store.reserve(request(owner))
++        }
++      } finally { server.close();await once(server,'close') }
++    })
++    console.log(JSON.stringify({environment:'isolated cloud Linux PG',schema,server:(await pool.query('SHOW server_version')).rows[0].server_version,utc:new Date().toISOString(),recordsRetained:true}))
++  } finally { await pool.end();await admin.end() }
++})
+diff --git a/lib/quota/store.ts b/lib/quota/store.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..8a3cadf811c98afd3586087f83b61f9d8ad782ca
+--- /dev/null
++++ b/lib/quota/store.ts
+@@ -0,0 +1,196 @@
++import { createHash, randomUUID } from 'node:crypto'
++import type { Pool, PoolClient } from 'pg'
++import { QuotaError } from './errors'
++
++export type QuotaAuthorization = (ownerId: string, workspaceId: string) => Promise<boolean>
++export type Reservation = { id: string; owner_id: string; workspace_id: string; resource: string; state: string; units: string; expires_at: Date; fingerprint: string }
++type UnsentProof = (client: PoolClient, reservation: Reservation) => Promise<boolean>
++type QuotaBinding = (client: PoolClient, reservation: Reservation) => Promise<void>
++export type QuotaRequest = { ownerId: string; key: string; resource: string; binding: unknown; leaseMs?: number }
++const MAX_LEASE_MS = 300_000
++
++// Stable serialization: property ordering must not turn a retry into another operation.
++function canonical(value: unknown): string {
++  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
++  if (value && typeof value === 'object') return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k,v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`
++  return JSON.stringify(value) ?? 'null'
++}
++
++export class QuotaStore {
++  constructor(readonly pool: Pool, readonly authorize: QuotaAuthorization) {}
++
++  private async transaction<T>(ownerId: string, action: (client: PoolClient, tenant: Record<string, any>, now: Date) => Promise<T>): Promise<T> {
++    const client = await this.pool.connect()
++    try {
++      await client.query('BEGIN')
++      // All mutations use tenant -> reservation order, including expiry, completion,
++      // backoff and renewal. Re-read authorization and wall time AFTER waiting.
++      const { rows: [tenant] } = await client.query(`SELECT t.* FROM quota_tenants t JOIN quota_owners o USING(workspace_id) WHERE o.owner_id=$1 FOR UPDATE OF t`, [ownerId])
++      if (!tenant) throw new QuotaError('quotaNotConfigured', 503, 60)
++      const { rows: [allocation] } = await client.query('SELECT * FROM quota_allocations WHERE workspace_id=$1 FOR SHARE', [tenant.workspace_id])
++      if (!await this.authorize(ownerId, tenant.workspace_id)) throw new QuotaError('quotaAccessDenied', 403)
++      const { rows: [{ now }] } = await client.query('SELECT clock_timestamp() AS now')
++      tenant.allocation = allocation
++      const result = await action(client, tenant, now)
++      await client.query('COMMIT')
++      return result
++    } catch (error) {
++      await client.query('ROLLBACK')
++      throw error
++    } finally { client.release() }
++  }
++
++  private checkPolicy(tenant: Record<string, any>, resource: string, now: Date) {
++    const allocation = tenant.allocation
++    if (!allocation || allocation.revoked_at || allocation.expires_at <= now) throw new QuotaError('quotaAllocationUnavailable', 403, 60)
++    if (tenant.rate_window_seconds !== allocation.rate_window_seconds) throw new QuotaError('quotaAllocationExceeded', 403)
++    if (tenant.paused) throw new QuotaError('quotaPaused', 403, 60)
++    if (now < tenant.window_start || now >= tenant.window_end) throw new QuotaError('quotaWindowUnavailable', 503, 60)
++    const rule = Object.hasOwn(tenant.resources, resource) ? tenant.resources[resource] : undefined
++    const approved = Object.hasOwn(allocation.resources, resource) ? allocation.resources[resource] : undefined
++    if (!approved || approved.unknownCostApproved !== true || !rule || rule.units !== approved.units || !Number.isSafeInteger(rule.units) || rule.units < 0 || rule.unknownCostApproved !== true) {
++      throw new QuotaError('quotaCostApprovalRequired', 403, 60)
++    }
++    return rule.units as number
++  }
++
++  private async expire(client: PoolClient, workspaceId: string, now: Date) {
++    // Before-send failures refund; after-send crashes retain the full allowance.
++    // Neither state remains a permanent concurrency lock. No automatic resend.
++    await client.query(`UPDATE quota_reservations SET state=CASE WHEN state='reserved' THEN 'refunded' ELSE 'uncertain' END,
++      settled_units=CASE WHEN state='reserved' THEN 0 ELSE units END, finished_at=$2
++      WHERE workspace_id=$1 AND state IN ('reserved','executing') AND expires_at <= $2`, [workspaceId, now])
++  }
++
++  private async checkHeldBudget(client: PoolClient, tenant: Record<string, any>, now: Date) {
++    const { rows: [total] } = await client.query(`SELECT COALESCE(sum(COALESCE(settled_units,units)) FILTER (WHERE created_at >= $2 AND created_at < $3),0) AS used,
++      COALESCE(sum(COALESCE(settled_units,units)),0) AS lifetime_used FROM quota_reservations WHERE workspace_id=$1`, [tenant.workspace_id, tenant.window_start, tenant.window_end])
++    const budget = BigInt(tenant.override_until > now ? tenant.override_units : tenant.budget_units) < BigInt(tenant.allocation.max_budget_units) ? (tenant.override_until > now ? tenant.override_units : tenant.budget_units) : tenant.allocation.max_budget_units
++    if (BigInt(total.used) > BigInt(budget) || BigInt(total.lifetime_used) > BigInt(tenant.allocation.max_budget_units)) throw new QuotaError('quotaBudgetExhausted', 429, (tenant.window_end.getTime() - now.getTime()) / 1000)
++  }
++
++  async reserve(input: QuotaRequest): Promise<Reservation> {
++    return this.reserveInternal(input)
++  }
++
++  /** Admission, activation and domain CAS have no intermediate committed state.
++   * Only database writes may run in bind; payload delivery follows commit. */
++  async reserveBound(input: QuotaRequest, bind: QuotaBinding, proveUnsent?: UnsentProof): Promise<Reservation> {
++    return this.reserveInternal(input, bind, proveUnsent)
++  }
++
++  private async reserveInternal(input: QuotaRequest, bind?: QuotaBinding, proveUnsent?: UnsentProof): Promise<Reservation> {
++    if (!input.ownerId || !input.key || input.key.length > 256 || !input.resource || input.resource.length > 128) throw new QuotaError('quotaInvalidRequest', 400)
++    const leaseMs = input.leaseMs ?? MAX_LEASE_MS
++    if (!Number.isInteger(leaseMs) || leaseMs < 100 || leaseMs > MAX_LEASE_MS) throw new QuotaError('quotaInvalidLease', 400)
++    const fingerprint = createHash('sha256').update(canonical({ resource: input.resource, binding: input.binding })).digest('hex')
++    return this.transaction(input.ownerId, async (client, tenant, now) => {
++      const units = this.checkPolicy(tenant, input.resource, now)
++      await this.expire(client, tenant.workspace_id, now)
++      let requestKey = input.key
++      const { rows: [existing] } = await client.query('SELECT * FROM quota_reservations WHERE owner_id=$1 AND request_key=$2', [input.ownerId, requestKey])
++      if (existing) {
++        if (existing.workspace_id !== tenant.workspace_id || existing.fingerprint !== fingerprint) throw new QuotaError('quotaKeyConflict', 409)
++        if (bind && proveUnsent && existing.state === 'refunded' && BigInt(existing.settled_units) === BigInt(0)) {
++          // Compatibility for an old pre-send crash. Preserve the immutable old
++          // refund; charge one new linked attempt only after a locked domain
++          // read proves no payload was ever issued. Never reopen an uncertain,
++          // settled or executing operation. New bound admission has no orphan.
++          if (!await proveUnsent(client, existing)) throw new QuotaError('quotaUnsentProofFailed', 409)
++          requestKey = `quota-unsent:${existing.id}`
++          const { rows: [retry] } = await client.query('SELECT * FROM quota_reservations WHERE owner_id=$1 AND request_key=$2', [input.ownerId, requestKey])
++          if (retry) {
++            if (retry.workspace_id !== tenant.workspace_id || retry.fingerprint !== fingerprint) throw new QuotaError('quotaKeyConflict', 409)
++            return this.activateInTransaction(client, tenant, now, input.ownerId, retry.id, bind)
++          }
++        } else return bind ? this.activateInTransaction(client, tenant, now, input.ownerId, existing.id, bind) : existing
++      }
++      const { rows: [backoff] } = await client.query('SELECT retry_at FROM quota_backoffs WHERE workspace_id=$1 AND resource=$2 AND retry_at > $3', [tenant.workspace_id, input.resource, now])
++      if (backoff) throw new QuotaError('providerBackoff', 429, (backoff.retry_at.getTime() - now.getTime()) / 1000)
++      const { rows: [totals] } = await client.query(`SELECT
++        COALESCE(sum(COALESCE(settled_units,units)),0) AS lifetime_used,
++        COALESCE(sum(COALESCE(settled_units,units)) FILTER (WHERE created_at >= $2 AND created_at < $3),0) AS used,
++        count(*) FILTER (WHERE state IN ('reserved','executing')) AS active,
++        count(*) FILTER (WHERE created_at > $4) AS rate,
++        min(created_at) FILTER (WHERE created_at > $4) AS oldest
++        FROM quota_reservations WHERE workspace_id=$1`, [tenant.workspace_id, tenant.window_start, tenant.window_end, new Date(now.getTime() - tenant.rate_window_seconds * 1000)])
++      const budget = BigInt(tenant.override_until > now ? tenant.override_units : tenant.budget_units) < BigInt(tenant.allocation.max_budget_units) ? (tenant.override_until > now ? tenant.override_units : tenant.budget_units) : tenant.allocation.max_budget_units
++      if (BigInt(totals.used) + BigInt(units) > BigInt(budget) || BigInt(totals.lifetime_used) + BigInt(units) > BigInt(tenant.allocation.max_budget_units)) throw new QuotaError('quotaBudgetExhausted', 429, (tenant.window_end.getTime() - now.getTime()) / 1000)
++      if (Number(totals.active) >= Math.min(tenant.concurrency_limit, tenant.allocation.max_concurrency)) throw new QuotaError('quotaConcurrencyExceeded', 429)
++      if (Number(totals.rate) >= Math.min(tenant.rate_limit, tenant.allocation.max_rate_limit)) throw new QuotaError('quotaRateExceeded', 429, (totals.oldest.getTime() + tenant.rate_window_seconds * 1000 - now.getTime()) / 1000)
++      const { rows: [reservation] } = await client.query(`INSERT INTO quota_reservations
++        (id,owner_id,workspace_id,request_key,resource,fingerprint,units,state,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,'reserved',$8) RETURNING *`,
++      [randomUUID(), input.ownerId, tenant.workspace_id, requestKey, input.resource, fingerprint, units, new Date(now.getTime() + leaseMs)])
++      return bind ? this.activateInTransaction(client, tenant, now, input.ownerId, reservation.id, bind) : reservation
++    })
++  }
++
++  async activate(ownerId: string, id: string): Promise<Reservation> {
++    return this.activateBound(ownerId, id, async () => {})
++  }
++
++  /** Only database writes belong in bind: activation and domain CAS commit
++   * together, before any execution payload or external effect can be issued. */
++  async activateBound(ownerId: string, id: string, bind: QuotaBinding): Promise<Reservation> {
++    return this.transaction(ownerId, (client, tenant, now) => this.activateInTransaction(client, tenant, now, ownerId, id, bind))
++  }
++
++  private async activateInTransaction(client: PoolClient, tenant: Record<string, any>, now: Date, ownerId: string, id: string, bind: QuotaBinding): Promise<Reservation> {
++    await this.expire(client, tenant.workspace_id, now)
++    const { rows: [row] } = await client.query('SELECT * FROM quota_reservations WHERE id=$1 AND owner_id=$2 AND workspace_id=$3', [id, ownerId, tenant.workspace_id])
++    if (!row) throw new QuotaError('quotaReservationNotFound', 404)
++    this.checkPolicy(tenant, row.resource, now)
++    await this.checkHeldBudget(client, tenant, now)
++    const { rows: [backoff] } = await client.query('SELECT retry_at FROM quota_backoffs WHERE workspace_id=$1 AND resource=$2 AND retry_at > $3', [tenant.workspace_id, row.resource, now])
++    if (backoff) throw new QuotaError('providerBackoff', 429, (backoff.retry_at.getTime() - now.getTime()) / 1000)
++    if (row.state !== 'reserved') throw new QuotaError(row.state === 'uncertain' ? 'quotaOutcomeUncertain' : 'quotaAlreadyDispatched', 409)
++    const { rows: [active] } = await client.query(`UPDATE quota_reservations SET state='executing' WHERE id=$1 RETURNING *`, [id])
++    await bind(client, active)
++    return active
++  }
++
++  /** Final pre-send fence. Rechecks the original executing lease without
++   * extending it, so old preflight work cannot resurrect an expired slot. */
++  async revalidate(ownerId: string, id: string): Promise<Reservation> {
++    return this.transaction(ownerId, async (client, tenant, now) => {
++      await this.expire(client, tenant.workspace_id, now)
++      const { rows: [row] } = await client.query('SELECT * FROM quota_reservations WHERE id=$1 AND owner_id=$2 AND workspace_id=$3', [id, ownerId, tenant.workspace_id])
++      if (!row || row.state !== 'executing') throw new QuotaError('quotaLeaseLost', 409)
++      this.checkPolicy(tenant, row.resource, now)
++      await this.checkHeldBudget(client, tenant, now)
++      const { rows: [backoff] } = await client.query('SELECT retry_at FROM quota_backoffs WHERE workspace_id=$1 AND resource=$2 AND retry_at > $3', [tenant.workspace_id, row.resource, now])
++      if (backoff) throw new QuotaError('providerBackoff', 429, (backoff.retry_at.getTime() - now.getTime()) / 1000)
++      return row
++    })
++  }
++
++  /** Settlement is immutable: duplicate and contradictory delivery cannot charge twice. */
++  async finish(ownerId: string, id: string, outcome: 'settled' | 'refunded' | 'uncertain', usage?: { inputTokens?: number; outputTokens?: number }, retryAfter?: number) {
++    // Completion must work after revocation to free resources, without enabling an effect.
++    const cleanup = new QuotaStore(this.pool, async () => true)
++    return cleanup.transaction(ownerId, async (client, tenant, now) => {
++      const { rows: [row] } = await client.query('SELECT * FROM quota_reservations WHERE id=$1 AND owner_id=$2 AND workspace_id=$3', [id, ownerId, tenant.workspace_id])
++      if (!row) throw new QuotaError('quotaReservationNotFound', 404)
++      if (!['reserved','executing'].includes(row.state)) return row
++      if (retryAfter !== undefined && Number.isFinite(retryAfter) && retryAfter > 0) {
++        await client.query(`INSERT INTO quota_backoffs(workspace_id,resource,retry_at) VALUES ($1,$2,$3)
++          ON CONFLICT(workspace_id,resource) DO UPDATE SET retry_at=GREATEST(quota_backoffs.retry_at,excluded.retry_at)`, [tenant.workspace_id, row.resource, new Date(now.getTime() + Math.min(retryAfter, 31_536_000) * 1000)])
++      }
++      const safeUsage = usage ? Object.fromEntries(Object.entries(usage).filter(([key,value]) => ['inputTokens','outputTokens'].includes(key) && Number.isSafeInteger(value) && value! >= 0)) : null
++      const { rows: [done] } = await client.query(`UPDATE quota_reservations SET state=$2, settled_units=$3, finished_at=$4, usage=$5 WHERE id=$1 RETURNING *`, [id, outcome, outcome === 'refunded' ? 0 : row.units, now, safeUsage])
++      return done
++    })
++  }
++
++  async renew(ownerId: string, id: string, leaseMs: number) {
++    if (!Number.isInteger(leaseMs) || leaseMs < 100 || leaseMs > MAX_LEASE_MS) throw new QuotaError('quotaInvalidLease', 400)
++    return this.transaction(ownerId, async (client, tenant, now) => {
++      await this.expire(client, tenant.workspace_id, now)
++      const { rows: [row] } = await client.query('SELECT * FROM quota_reservations WHERE id=$1 AND owner_id=$2 AND workspace_id=$3', [id, ownerId, tenant.workspace_id])
++      if (!row || row.state !== 'executing') throw new QuotaError('quotaLeaseLost', 409)
++      this.checkPolicy(tenant, row.resource, now)
++      await this.checkHeldBudget(client, tenant, now)
++      await client.query('UPDATE quota_reservations SET expires_at=$2 WHERE id=$1', [id, new Date(now.getTime()+leaseMs)])
++    })
++  }
++}
+diff --git a/lib/quota/workflow-model.ts b/lib/quota/workflow-model.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..676f1c2460ff1c1e9b16e769214b30bb6463fc08
+--- /dev/null
++++ b/lib/quota/workflow-model.ts
+@@ -0,0 +1,39 @@
++import { WORKFLOW_DESERIALIZE, WORKFLOW_SERIALIZE } from '@workflow/serde'
++import type { gateway } from 'ai'
++
++type GatewayModel = ReturnType<typeof gateway.languageModel>
++type CallOptions = Parameters<GatewayModel['doGenerate']>[0]
++
++/** Only identifiers cross the durable step boundary; provider clients and
++ * database handles are constructed at the actual model invocation. */
++export class QuotaWorkflowModel {
++  readonly specificationVersion = 'v4' as const
++  readonly provider = 'gateway'
++  readonly supportedUrls = {}
++  constructor(readonly ownerId: string, readonly modelId: string, readonly operationKey: string) {}
++  static [WORKFLOW_SERIALIZE](model: QuotaWorkflowModel) {
++    return { ownerId: model.ownerId, modelId: model.modelId, operationKey: model.operationKey }
++  }
++  static [WORKFLOW_DESERIALIZE](data: { ownerId: string; modelId: string; operationKey: string }) {
++    return new QuotaWorkflowModel(data.ownerId, data.modelId, data.operationKey)
++  }
++  async doGenerate(options: CallOptions) {
++    'use step'
++    const { gateway } = await import('ai')
++    const { beginQuota, quotaFailure, tenantQuotas } = await import('./runtime')
++    const reservation = await beginQuota({ ownerId: this.ownerId, key: this.operationKey, resource: 'coordinator.model', binding: { model: this.modelId, prompt: options.prompt, tools: options.tools } })
++    let result: Awaited<ReturnType<GatewayModel['doGenerate']>>
++    try {
++      result = await gateway.languageModel(this.modelId).doGenerate({ ...options, abortSignal: AbortSignal.any([...(options.abortSignal ? [options.abortSignal] : []), AbortSignal.timeout(270000)]) })
++    } catch (error) {
++      const failure = quotaFailure(error)
++      await tenantQuotas.finish(this.ownerId, reservation.id, failure.outcome, undefined, failure.retryAfter)
++      throw error
++    }
++    await tenantQuotas.finish(this.ownerId, reservation.id, 'settled', { inputTokens: result.usage.inputTokens.total, outputTokens: result.usage.outputTokens.total })
++    return result
++  }
++  async doStream(_options: Parameters<GatewayModel['doStream']>[0]): Promise<Awaited<ReturnType<GatewayModel['doStream']>>> {
++    throw new Error('quotaStreamingUnsupported: Coordinator uses durable generate')
++  }
++}
+diff --git a/lib/run-leases.ts b/lib/run-leases.ts
+index cbd569ed8cddaf01b1c44792ced65403ff40e5cf..75a6a72d39997151a900a74eb93f368cfa4fcc86 100644
+--- a/lib/run-leases.ts
++++ b/lib/run-leases.ts
+@@ -9,6 +9,7 @@ import { runFinishedEvent, runRetriedEvent } from '@/lib/coordinator-events'
+ import { wakeCoordinator } from '@/lib/coordinator/wake'
+ import { revokeRunTokens } from '@/lib/mcp/worker'
+ import { DEVICE_STAYED_OFFLINE, LEASED_RUN_STATUSES, lostRunOutcome, MAX_RUN_ATTEMPTS, pickTakeover, RETRY_QUEUE_WAIT_MS, retryPrompt, type TakeoverCandidate } from '@/lib/run-retry'
++import { tenantQuotas } from '@/lib/quota/runtime'
+ 
+ // Run leases on the server (ADR 0012). The heartbeat renews the lease of each
+ // run the device reports; a run left out is not renewed, and the daemon stops
+@@ -23,10 +24,19 @@ import { DEVICE_STAYED_OFFLINE, LEASED_RUN_STATUSES, lostRunOutcome, MAX_RUN_ATT
+  */
+ export async function renewRunLeases(deviceId: string, runIds: readonly string[], now = new Date()): Promise<{ leases: Record<string, string>; revoked?: string[] }> {
+   if (!runIds.length) return { leases: {} }
++  const candidates = await db.select({ id: agentRuns.id, ownerId: agentRuns.userId, quotaId: agentRuns.quotaReservationId }).from(agentRuns).innerJoin(devices, and(eq(devices.id, agentRuns.deviceId), eq(devices.ownerId, agentRuns.userId)))
++    .where(and(eq(agentRuns.deviceId, deviceId), inArray(agentRuns.id, [...runIds]), inArray(agentRuns.status, [...LEASED_RUN_STATUSES]), gt(agentRuns.leaseExpiresAt, now)))
++  const allowed: string[] = []
++  for (const run of candidates) {
++    if (!run.quotaId) continue // A pre-migration worker must be claimed through the gate again.
++    try { await tenantQuotas.renew(run.ownerId, run.quotaId, RUN_LEASE_MS); allowed.push(run.id) }
++    catch { /* Fail closed on revoked membership, stale quota or unavailable database. */ }
++  }
++  if (!allowed.length) return { leases: {}, revoked: [...runIds] }
+   const leaseExpiresAt = new Date(now.getTime() + RUN_LEASE_MS)
+   const renewed = await db.update(agentRuns)
+     .set({ leaseExpiresAt, updatedAt: now })
+-    .where(and(eq(agentRuns.deviceId, deviceId), inArray(agentRuns.id, [...runIds]), inArray(agentRuns.status, [...LEASED_RUN_STATUSES])))
++    .where(and(eq(agentRuns.deviceId, deviceId), inArray(agentRuns.id, allowed), inArray(agentRuns.status, [...LEASED_RUN_STATUSES]), gt(agentRuns.leaseExpiresAt, now)))
+     .returning({ id: agentRuns.id })
+   const held = new Set(renewed.map(run => run.id))
+   const revoked = runIds.filter(id => !held.has(id))
+@@ -127,7 +137,10 @@ async function reclaimLostRun(run: Run, now: Date) {
+     await recordCoordinatorEvent(tx, runRetriedEvent(run, { runId: retryId, attempt: outcome.attempt, maxAttempts: MAX_RUN_ATTEMPTS, movedToDeviceId: target?.deviceId ?? null }))
+     return true
+   })
+-  if (retried) await revokeRunTokens(run.id)
++  if (retried) {
++    if (run.quotaReservationId) await tenantQuotas.finish(run.userId, run.quotaReservationId, 'uncertain')
++    await revokeRunTokens(run.id)
++  }
+ }
+ 
+ /** Ends a run that is still in one of `from`; false when something else ended it first. */
+@@ -141,6 +154,7 @@ async function endRun(runId: string, from: readonly Run['status'][], end: { stat
+ 
+ /** Same as a completion from the daemon: tokens off, and the Coordinator hears it. A failure lands in 等你. */
+ async function announceEnd(run: Run & { status: 'failed' | 'stopped' }) {
++  if (run.quotaReservationId) await tenantQuotas.finish(run.userId, run.quotaReservationId, 'uncertain')
+   await revokeRunTokens(run.id)
+   await recordCoordinatorEvent(db, runFinishedEvent({ ...run, stopReason: 'device_lost', report: null }))
+   after(() => wakeCoordinator(run.userId))
+diff --git a/lib/suggestions/store.ts b/lib/suggestions/store.ts
+index f404da9e4d42fa89f59b2677a3474b854c0b2955..7e396d4fdb71dbeccf4c450bde9cc7bebd9930d6 100644
+--- a/lib/suggestions/store.ts
++++ b/lib/suggestions/store.ts
+@@ -16,7 +16,7 @@ const LIST_LIMIT = 100
+ async function judge(notification: ExternalNotification): Promise<Verdict> {
+   const ruled = ruleVerdict(notification)
+   if (ruled) return ruled
+-  const answers = await decide('suggestion', decisionInput(suggestionState(notification)), suggestionQuestions())
++  const answers = await decide('suggestion', decisionInput(suggestionState(notification)), suggestionQuestions(), notification.userId, `suggestion:${notification.source}:${notification.externalId}`)
+   const answer = answers?.get('worthShowing')
+   return answer?.type === 'predicate' ? modelVerdict(answer.probability) : fallbackVerdict(notification)
+ }
+diff --git a/package.json b/package.json
+index c0583e81b7ce062b6b91626185d84900809d26b9..93695626ebbbf2a257d956051260c89842a1c677 100644
+--- a/package.json
++++ b/package.json
+@@ -86,6 +86,7 @@
+     "@tiptap/y-tiptap": "^3.0.10",
+     "@vercel/analytics": "1.3.1",
+     "@vercel/oidc": "^4.0.2",
++    "@workflow/serde": "5.0.0",
+     "ai": "7.0.148",
+     "beautiful-mermaid": "^1.1.3",
+     "better-auth": "^1.7.12",
+diff --git a/patches/@composio__client@2.0.0-rc.19.patch b/patches/@composio__client@2.0.0-rc.19.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..f4b0a276e30840e3de07f4ab5b9d7e79d553041a
+--- /dev/null
++++ b/patches/@composio__client@2.0.0-rc.19.patch
+@@ -0,0 +1,16 @@
++diff --git a/dist/generated-operations-Dv7pAKDT.mjs b/dist/generated-operations-Dv7pAKDT.mjs
++index af39b4595098605e337471936885788bf4364932..b4051c841eeacd634e5fe1dedce0db61077343cc 100644
++--- a/dist/generated-operations-Dv7pAKDT.mjs
+++++ b/dist/generated-operations-Dv7pAKDT.mjs
++@@ -1706,7 +1706,10 @@ async function makeRequest(config, options) {
++ 		const timer = setTimeout(abort, timeout);
++ 		let result;
++ 		try {
++-			result = await dispatchWithRedirects(config, options, url, body, bodyHeaders, controller.signal, call);
+++			// Keep the caller deadline connected to fetch body I/O after headers,
+++			// when the attempt's manual abort listener has been removed.
+++			const signal = userSignal ? AbortSignal.any([controller.signal, userSignal]) : controller.signal;
+++			result = await dispatchWithRedirects(config, options, url, body, bodyHeaders, signal, call);
++ 		} catch (cause) {
++ 			if (cause instanceof ComposioError) {
++ 				if (attemptLog !== void 0) emitLog(config, "info", "Request failed", {
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index e6225181c665aa0f9470fcb0797f30780b1a7808..b175df6cbcd82cf47a40fd792fd7c627ae91cd2e 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -4,6 +4,11 @@ settings:
+   autoInstallPeers: true
+   excludeLinksFromLockfile: false
+ 
++patchedDependencies:
++  '@composio/client@2.0.0-rc.19':
++    hash: 5a06f95518446dbededea21d56444f721ec0e58a23f4b7a0f0caa567ac5f28f0
++    path: patches/@composio__client@2.0.0-rc.19.patch
++
+ importers:
+ 
+   .:
+@@ -125,6 +130,9 @@ importers:
+       '@vercel/oidc':
+         specifier: ^4.0.2
+         version: 4.0.2
++      '@workflow/serde':
++        specifier: 5.0.0
++        version: 5.0.0
+       ai:
+         specifier: 7.0.148
+         version: 7.0.148(zod@4.6.7)
+@@ -8749,11 +8757,11 @@ snapshots:
+   '@cloudflare/workerd-windows-64@1.20261019.1':
+     optional: true
+ 
+-  '@composio/client@2.0.0-rc.19': {}
++  '@composio/client@2.0.0-rc.19(patch_hash=5a06f95518446dbededea21d56444f721ec0e58a23f4b7a0f0caa567ac5f28f0)': {}
+ 
+   '@composio/core@0.26.0(@smithy/signature-v4@5.7.4)(ws@8.22.0)(zod@4.6.7)':
+     dependencies:
+-      '@composio/client': 2.0.0-rc.19
++      '@composio/client': 2.0.0-rc.19(patch_hash=5a06f95518446dbededea21d56444f721ec0e58a23f4b7a0f0caa567ac5f28f0)
+       '@composio/json-schema-to-zod': 0.4.0(zod@4.6.7)
+       '@types/json-schema': 7.0.15
+       is-fs-case-sensitive: 2.0.0
+diff --git a/pnpm-workspace.yaml b/pnpm-workspace.yaml
+index 1a168ab8193a3f95c93a02b2b70778ea7d5f4708..828826420f52ecba151cf2f076f1b3e4c2c49d7f 100644
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -16,3 +16,6 @@ allowBuilds:
+   '@swc/core': true
+   esbuild: true
+   sharp: true
++
++patchedDependencies:
++  '@composio/client@2.0.0-rc.19': patches/@composio__client@2.0.0-rc.19.patch
+diff --git a/tests/agent-web-tools.test.mjs b/tests/agent-web-tools.test.mjs
+index 3e6961c47e40ff11bfcc30455cdef42570d0796c..7c48a37e6b5bb5f352472db022883e1f6b26d97b 100644
+--- a/tests/agent-web-tools.test.mjs
++++ b/tests/agent-web-tools.test.mjs
+@@ -12,7 +12,7 @@ test('联网工具只暴露搜索和网页读取，保留 DS 聊天及认证', a
+   const source = await readFile(new URL('../app/api/agent/route.ts', import.meta.url), 'utf8')
+   assert.match(source, /opencode\('deepseek-v4\.1-flash'\)/)
+   assert.match(source, /auth\.api\.getSession/)
+-  assert.match(source, /tools:\s*\{\s*\.\.\.createAgentWebTools\(\{ signal: request\.signal \}\),/)
++  assert.match(source, /tools:\s*\{\s*\.\.\.createAgentWebTools\(\{ signal: request\.signal, admit:/)
+   assert.match(source, /\.\.\.createComposioAITools\(\(action, input\) => runComposioAction\(session\.user\.id, action, input\)\)/)
+   assert.match(source, /stopWhen: isStepCount\(5\)/)
+   assert.match(source, /stepNumber >= 4 \? \{ toolChoice: 'none' \}/)
+diff --git a/tests/e2e/fixtures.ts b/tests/e2e/fixtures.ts
+index ebe589c11560fb14515fec5c27bba1d6996cbc4c..6e513ea36f43b116ae6b1ddc787d8386832bbb1b 100644
+--- a/tests/e2e/fixtures.ts
++++ b/tests/e2e/fixtures.ts
+@@ -66,6 +66,28 @@ export async function seedTask(page: Page, title: string, { status = 'todo', pri
+   return id
+ }
+ 
++/** An operator-issued synthetic enqueue-only allocation. It cannot call a model. */
++export async function seedCoordinatorAdmission(page: Page) {
++  const target = new URL(process.env.E2E_DATABASE_URL!)
++  if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_e2e')) throw new Error('Quota fixture requires loopback E2E database')
++  // Registration reaches the Coordinator before the lazy workspace directory
++  // necessarily loads. Initialize through the authenticated product endpoint.
++  const contextResponse = await page.request.get(app('/api/workspace'))
++  expect(contextResponse.status()).toBe(200)
++  const context = await contextResponse.json()
++  const cookie = (await page.context().cookies()).find(item => item.name.endsWith('session_token'))
++  if (!cookie) throw new Error('Quota fixture requires authenticated synthetic session')
++  const db = database()
++  const { rows: [row] } = await db.query(`SELECT s."userId" AS owner,w.id AS workspace FROM session s JOIN mikka_workspaces w ON w."userId"=s."userId" WHERE s.token=$1 AND w.id=$2 LIMIT 1`, [decodeURIComponent(cookie.value).split('.')[0], context.workspace.id])
++  if (!row) throw new Error('Quota fixture requires an existing workspace')
++  const resources = { 'coordinator.submit': { units: 0, unknownCostApproved: true } }
++  await db.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,rate_window_seconds,resources,expires_at,granted_by,reason)
++    VALUES ($1,0,1,100,60,$2,now()+interval '1 hour','e2e-operator','synthetic enqueue-only fixture') ON CONFLICT DO NOTHING`, [row.workspace, resources])
++  await db.query(`INSERT INTO quota_tenants(workspace_id,window_start,window_end,budget_units,concurrency_limit,rate_limit,rate_window_seconds,resources)
++    VALUES ($1,now()-interval '1 minute',now()+interval '30 minutes',0,1,100,60,$2) ON CONFLICT DO NOTHING`, [row.workspace, resources])
++  await db.query('INSERT INTO quota_owners(owner_id,workspace_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [row.owner, row.workspace])
++}
++
+ /** The current conversation's title pill over the chat (desktop). */
+ export function conversationPill(page: Page) {
+   // Conversations opened earlier stay mounted but hidden; only the current one is visible.
+diff --git a/tests/e2e/workspace.spec.ts b/tests/e2e/workspace.spec.ts
+index c320b9a1eab2684e5bd47131be12d5bb6e8689fd..1374741119deea712699b1c92f5121a95e44591d 100644
+--- a/tests/e2e/workspace.spec.ts
++++ b/tests/e2e/workspace.spec.ts
+@@ -1,5 +1,5 @@
+ import { randomUUID } from 'node:crypto'
+-import { test, expect, register, rail, app, openCreateIssue, openIssueFromSearch, seedTask } from './fixtures'
++import { test, expect, register, rail, app, openCreateIssue, openIssueFromSearch, seedTask, seedCoordinatorAdmission } from './fixtures'
+ 
+ test('未登录访问受保护页面、注册和登录链接', async ({ page }) => {
+   await page.goto(app('/settings/members'))
+@@ -65,6 +65,7 @@ test('移动端设置菜单和工作区切换保持一致', async ({ page }) =>
+ 
+ test('注册、创建任务、菜单、搜索、视图切换和退出登录', async ({ page }) => {
+   const account = await register(page)
++  await seedCoordinatorAdmission(page)
+   await expect(page.getByRole('button', { name: /^Coordinator/ })).toHaveAttribute('aria-current', 'page')
+   await rail(page, '看板').click()
+   await expect(page.getByRole('heading', { name: '看板', exact: true })).toBeVisible()
+diff --git a/tests/fixtures/quota-http-preload.mjs b/tests/fixtures/quota-http-preload.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..3c48b62324479a50ccb038c5de7049ac0f841da5
+--- /dev/null
++++ b/tests/fixtures/quota-http-preload.mjs
+@@ -0,0 +1,3 @@
++// Isolated acceptance process only; production application never imports this.
++if (process.env.QUOTA_TEST_COMPILER_PRELOAD) await import(process.env.QUOTA_TEST_COMPILER_PRELOAD)
++await import('./quota-network-guard.mjs')
+diff --git a/tests/fixtures/quota-network-guard.mjs b/tests/fixtures/quota-network-guard.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..84fcf4bf1d86ab41a0a1815d014a02d7940ed8ad
+--- /dev/null
++++ b/tests/fixtures/quota-network-guard.mjs
+@@ -0,0 +1,23 @@
++// Test process only. Deny external egress while exercising real Next handlers.
++// This is a failure sentinel, not a successful provider simulation.
++import { appendFileSync } from 'node:fs'
++import http from 'node:http'
++import https from 'node:https'
++import { syncBuiltinESMExports } from 'node:module'
++function allowed(value) {
++  const url = new URL(value)
++  if (['localhost','127.0.0.1','[::1]'].includes(url.hostname)) return
++  appendFileSync(process.env.QUOTA_NETWORK_EVIDENCE, JSON.stringify({ origin: url.origin, utc: new Date().toISOString() })+'\n')
++  throw new Error('quota-test: external egress denied')
++}
++const originalFetch=globalThis.fetch
++if(originalFetch)globalThis.fetch=(input,options)=>{allowed(typeof input==='string'||input instanceof URL?input:input.url);return originalFetch(input,options)}
++for (const [module,protocol] of [[http,'http:'],[https,'https:']]) {
++  const original=module.request
++  module.request=function(input,...args){
++    if(typeof input==='string'||input instanceof URL)allowed(input)
++    else allowed(`${input.protocol??protocol}//${input.hostname??input.host??'localhost'}:${input.port??(protocol==='https:'?443:80)}`)
++    return original.call(this,input,...args)
++  }
++}
++syncBuiltinESMExports()
+diff --git a/tests/quota-api.test.mjs b/tests/quota-api.test.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..30ec3ab3d8d39a10d16bbbf999dac4641b4b3486
+--- /dev/null
++++ b/tests/quota-api.test.mjs
+@@ -0,0 +1,174 @@
++import assert from 'node:assert/strict'
++import { createHash, createHmac, randomUUID } from 'node:crypto'
++import { execFileSync, spawn } from 'node:child_process'
++import { once } from 'node:events'
++import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
++import { appendFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++import { setTimeout as delay } from 'node:timers/promises'
++import test from 'node:test'
++import { Pool } from 'pg'
++
++const target=process.env.QUOTA_TEST_DATABASE_URL
++if(target){
++  const url=new URL(target)
++  assert.ok(['127.0.0.1','localhost','[::1]'].includes(url.hostname))
++  assert.match(url.pathname,/(?:_e2e|_quota215)$/)
++}
++
++test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates', {skip:!target,timeout:120000},async t=>{
++  const pool=new Pool({connectionString:target,max:15})
++  const directory=await mkdtemp(join(tmpdir(),'mikka-quota-http-'))
++  const network=join(directory,'external-attempts.jsonl');await writeFile(network,'')
++  const secret=process.env.BETTER_AUTH_SECRET
++  assert.ok(secret?.length>=32,'Ephemeral auth secret required')
++  const origin='http://localhost:3215',base=`${origin}/mikka`
++  const results=[]
++  const evidence={utc:new Date().toISOString(),sha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),environment:base,fixtures:[],requests:[],migration:'20261025165100_tenant_quotas.sql',results}
++  let log=''
++  const runtimeLog=join(directory,'next-runtime.log');await writeFile(runtimeLog,'')
++  const child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3215'],{cwd:new URL('..',import.meta.url),env:{...process.env,
++    MIKKA_DATABASE_URL:target,DATABASE_URL:target,BETTER_AUTH_URL:origin,
++    // Synthetic non-secrets. The egress sentinel rejects external requests.
++    OPENCODE_API_KEY:'synthetic-quota-test-no-provider-access',AI_GATEWAY_API_KEY:'synthetic-quota-test-no-provider-access',
++    QUOTA_NETWORK_EVIDENCE:network,NODE_OPTIONS:`${process.env.NODE_OPTIONS??''} --import=${new URL('./fixtures/quota-network-guard.mjs',import.meta.url).pathname}`,
++  },stdio:['ignore','pipe','pipe']})
++  child.stdout.on('data',d=>{log+=d;appendFileSync(runtimeLog,d)})
++  child.stderr.on('data',d=>{log+=d;appendFileSync(runtimeLog,d)})
++  let cleanupPromise
++  const cleanup=()=>cleanupPromise??=(async()=>{
++    if(child.exitCode===null&&child.signalCode===null){const exit=once(child,'exit');child.kill('SIGTERM');await exit}
++    evidence.runtimeLog=runtimeLog
++    await writeFile('quota-api-evidence.json',JSON.stringify(evidence,null,2))
++    await pool.end()
++  })()
++  t.after(cleanup)
++  try{
++    let ready=false
++    for(let i=0;i<120;i++){
++      if(child.exitCode!==null)throw new Error(`Next exited: ${log}`)
++      try{await fetch(`${base}/api/agent`,{method:'HEAD',signal:AbortSignal.timeout(2000)});ready=true;break}catch{}
++      await delay(250)
++    }
++    assert.ok(ready,'Next must start')
++    const fixture=async()=>{
++      const owner=randomUUID(),workspace=randomUUID(),token=randomUUID()
++      await pool.query(`INSERT INTO "user"(id,name,email,"emailVerified","createdAt","updatedAt") VALUES ($1,'Quota test',$2,true,now(),now())`,[owner,`${owner}@example.invalid`])
++      await pool.query(`INSERT INTO session(id,token,"userId","expiresAt","createdAt","updatedAt") VALUES ($1,$2,$3,now()+interval '1 hour',now(),now())`,[randomUUID(),token,owner])
++      await pool.query('INSERT INTO mikka_workspaces(id,"userId",name) VALUES ($1,$2,\'Quota isolated workspace\')',[workspace,owner])
++      await pool.query('INSERT INTO mikka_workspace_members("workspaceId","userId",name,email,role,status) VALUES ($1,$2,\'Quota test\',$3,\'admin\',\'active\')',[workspace,owner,`${owner}@example.invalid`])
++      const signature=createHmac('sha256',secret).update(token).digest('base64')
++      const headers={cookie:`better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,origin,'content-type':'application/json'}
++      evidence.fixtures.push({owner,workspace})
++      const request=async(path,body,method='POST')=>{
++        const response=await fetch(`${base}${path}`,{method:method==='PUT'?'PUT':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)})
++        evidence.requests.push({owner,workspace,path,method,status:response.status,utc:new Date().toISOString()})
++        return response
++      }
++      const policy={windowStart:new Date(Date.now()-60000).toISOString(),windowEnd:new Date(Date.now()+3600000).toISOString(),budgetUnits:0,concurrencyLimit:1,rateLimit:100,rateWindowSeconds:60,
++        resources:{'agent.turn':{units:1,unknownCostApproved:true},'coordinator.submit':{units:1,unknownCostApproved:true},'coordinator.model':{units:1,unknownCostApproved:true},'daemon.run':{units:1,unknownCostApproved:true}},paused:false,owners:[owner],override:null}
++      await pool.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,rate_window_seconds,resources,expires_at,granted_by,reason)
++        VALUES ($1,100,100,1000,60,$2,now()+interval '2 hours','test-operator','isolated synthetic allocation')`,[workspace,policy.resources])
++      const configure=changes=>request(`/api/workspaces/${workspace}/quota`,{...policy,...changes},'PUT')
++      const configured=await configure({});assert.equal(configured.status,200,await configured.text())
++      return{owner,workspace,request,configure,policy,headers}
++    }
++    const check=async(name,action)=>{
++      await t.test(name,async()=>{try{await action();results.push({name,result:'passed',utc:new Date().toISOString()})}catch(error){results.push({name,result:'failed',message:String(error.message).slice(0,500),utc:new Date().toISOString()});throw error}})
++    }
++    await check('ordinary Agent 10-way budget denial returns 429 and leaves no running turns',async()=>{
++      const f=await fixture()
++      const responses=await Promise.all(Array.from({length:10},()=>f.request('/api/agent',{prompt:'isolated quota admission',sessionId:randomUUID(),turnId:randomUUID()})))
++      for(const response of responses){assert.equal(response.status,429);assert.ok(Number(response.headers.get('retry-after'))>0);assert.equal((await response.json()).error,'quotaBudgetExhausted')}
++      assert.equal(Number((await pool.query("SELECT count(*) n FROM agent_turns WHERE \"userId\"=$1 AND status='pending'",[f.owner])).rows[0].n),0)
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM quota_reservations WHERE owner_id=$1',[f.owner])).rows[0].n),0)
++      const usagePath=`/api/workspaces/${f.workspace}/quota`
++      const usageResponse=await fetch(`${base}${usagePath}`,{headers:f.headers})
++      const usage=await usageResponse.json()
++      assert.equal(usageResponse.status,200);assert.equal(usage.unit,'admission_unit');assert.equal(usage.budget,'0');assert.equal(usage.allocation_budget,'100');assert.equal(usage.lifetime_used,'0')
++      evidence.requests.push({owner:f.owner,workspace:f.workspace,path:usagePath,method:'GET',status:usageResponse.status,utc:new Date().toISOString()})
++    })
++    await check('Coordinator HTTP admission rejects before enqueue',async()=>{
++      const f=await fixture(),r=await f.request('/api/coordinator/messages',{text:'isolated quota test'})
++      assert.equal(r.status,429);assert.equal((await r.json()).error,'quotaBudgetExhausted')
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM coordinator_events WHERE "userId"=$1',[f.owner])).rows[0].n),0)
++    })
++    await check('actual durable Coordinator model fails closed at its provider boundary',async()=>{
++      const f=await fixture()
++      await pool.query(`UPDATE quota_allocations SET resources=jsonb_set(resources,'{coordinator.submit,units}','0') WHERE workspace_id=$1`,[f.workspace])
++      assert.equal((await f.configure({resources:{...f.policy.resources,'coordinator.submit':{units:0,unknownCostApproved:true}}})).status,200)
++      const response=await f.request('/api/coordinator/messages',{text:'isolated model gate test'})
++      assert.equal(response.status,202)
++      let error
++      for(let i=0;i<120;i++){
++        error=(await pool.query('SELECT "lastError" FROM coordinator_sessions WHERE "userId"=$1',[f.owner])).rows[0]?.lastError
++        if(error)break
++        await delay(250)
++      }
++      assert.match(error??'',/quotaBudgetExhausted/)
++    })
++    await check('expired override, suspended membership, foreign workspace and non-admin cannot enable execution',async()=>{
++      const f=await fixture()
++      const oversized=await fetch(`${base}/api/workspaces/${f.workspace}/quota`,{method:'PUT',headers:f.headers,
++        body:new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode(' '.repeat(100001)));controller.close()}}),duplex:'half'})
++      assert.equal(oversized.status,413)
++      evidence.requests.push({owner:f.owner,workspace:f.workspace,path:`/api/workspaces/${f.workspace}/quota`,method:'PUT',status:oversized.status,case:'chunked body size cap',utc:new Date().toISOString()})
++      assert.equal((await f.configure({override:{units:5,until:new Date(Date.now()-1000).toISOString(),reason:'expired test'}})).status,400)
++      assert.equal((await f.configure({budgetUnits:101})).status,403)
++      assert.equal((await f.configure({resources:{'unapproved.resource':{units:0,unknownCostApproved:true}}})).status,403)
++      const other=await fixture()
++      assert.equal((await f.request(`/api/workspaces/${other.workspace}/quota`,f.policy,'PUT')).status,403)
++      await pool.query('UPDATE mikka_workspace_members SET role=\'member\' WHERE "workspaceId"=$1 AND "userId"=$2',[f.workspace,f.owner])
++      assert.equal((await f.configure({budgetUnits:5})).status,403)
++      await pool.query('UPDATE mikka_workspace_members SET status=\'suspended\' WHERE "workspaceId"=$1 AND "userId"=$2',[f.workspace,f.owner])
++      const response=await f.request('/api/agent',{prompt:'revoked quota test'})
++      assert.equal(response.status,403);assert.equal((await response.json()).error,'quotaAccessDenied')
++    })
++    await check('daemon 10-way claims share concurrency; replay never returns another execution payload',async()=>{
++      const f=await fixture();assert.equal((await f.configure({budgetUnits:10})).status,200)
++      const device=randomUUID(),agent=randomUUID(),repo=randomUUID(),issue=randomUUID(),deviceToken=randomUUID()
++      await pool.query('INSERT INTO device_tokens(id,"userId","tokenHash") VALUES ($1,$2,$3)',[randomUUID(),f.owner,createHash('sha256').update(deviceToken).digest('hex')])
++      await pool.query(`INSERT INTO devices(id,"ownerId",name,platform,arch,"daemonVersion") VALUES ($1,$2,'quota synthetic device','linux','x64','0.0.1')`,[device,f.owner])
++      await pool.query(`INSERT INTO agents(id,"userId",name,harness,"deviceId") VALUES ($1,$2,'quota agent','codex',$3)`,[agent,f.owner,device])
++      await pool.query(`INSERT INTO device_repos(id,"deviceId","userId","repoPath","baseBranch") VALUES ($1,$2,$3,'/quota-no-execution','main')`,[repo,device,f.owner])
++      await pool.query(`INSERT INTO issues(id,"userId",title,content,status,priority) VALUES ($1,$2,'quota issue','{}','todo','normal')`,[issue,f.owner])
++      const runs=Array.from({length:10},()=>randomUUID())
++      for(const run of runs)await pool.query(`INSERT INTO agent_runs(id,"userId","agentId","deviceId","deviceRepoId","issueId",status) VALUES ($1,$2,$3,$4,$5,$6,'queued')`,[run,f.owner,agent,device,repo,issue])
++      const daemon=async(path,body)=>{
++        const response=await fetch(`${base}${path}`,{method:'POST',headers:{authorization:`Bearer ${deviceToken}`,'content-type':'application/json'},body:JSON.stringify(body??{})})
++        evidence.requests.push({owner:f.owner,workspace:f.workspace,path,method:'POST',status:response.status,utc:new Date().toISOString()})
++        return response
++      }
++      const responses=await Promise.all(runs.map(run=>daemon(`/v1/devices/${device}/runs/${run}/claim`)))
++      assert.equal(responses.filter(r=>r.status===200).length,1)
++      assert.equal(responses.filter(r=>r.status===429).length,9)
++      const winner=await responses.find(r=>r.status===200).json()
++      const duplicate=await daemon(`/v1/devices/${device}/runs/${winner.runId}/claim`)
++      assert.equal(duplicate.status,409)
++      assert.equal(Number((await pool.query("SELECT count(*) n FROM agent_runs WHERE \"userId\"=$1 AND status='preparing'",[f.owner])).rows[0].n),1)
++      // No daemon process is launched and no harness/provider is invoked.
++      const quotaId=(await pool.query('SELECT "quotaReservationId" FROM agent_runs WHERE id=$1',[winner.runId])).rows[0].quotaReservationId
++      const completed=await daemon(`/v1/runs/${winner.runId}/complete`,{stopReason:'cancelled'})
++      assert.equal(completed.status,204,await completed.text())
++      assert.equal((await daemon(`/v1/runs/${winner.runId}/complete`,{stopReason:'cancelled'})).status,204)
++      assert.equal((await pool.query('SELECT settled_units FROM quota_reservations WHERE id=$1',[quotaId])).rows[0].settled_units,'1')
++      const next=runs.find(id=>id!==winner.runId)
++      assert.equal((await daemon(`/v1/devices/${device}/runs/${next}/claim`)).status,200)
++      const leaseBefore=(await pool.query('SELECT "leaseExpiresAt" FROM agent_runs WHERE id=$1',[next])).rows[0].leaseExpiresAt.toISOString()
++      await pool.query(`UPDATE mikka_workspace_members SET status='suspended' WHERE "workspaceId"=$1 AND "userId"=$2`,[f.workspace,f.owner])
++      const heartbeat=await daemon(`/v1/devices/${device}/heartbeat`,{harnesses:[],runs:[{runId:next,lastProgressAt:new Date().toISOString()}],worktreeDiskBytes:0})
++      assert.equal(heartbeat.status,200)
++      const heartbeatBody=await heartbeat.json();assert.deepEqual(heartbeatBody.leases,{});assert.ok(heartbeatBody.revoked.includes(next))
++      assert.equal((await pool.query('SELECT "leaseExpiresAt" FROM agent_runs WHERE id=$1',[next])).rows[0].leaseExpiresAt.toISOString(),leaseBefore)
++
++    })
++    const external=await readFile(network,'utf8')
++    assert.equal(external,'',`External provider calls were attempted: ${external}`)
++    evidence.externalNetworkAttempts=0
++    evidence.syntheticRecordsRetained=true
++  }catch(error){
++    evidence.serverFailure={message:String(error.message).slice(0,1000),utc:new Date().toISOString()}
++    throw error
++  }finally{await cleanup()}
++})
+diff --git a/tests/quota-claim-fault.test.mjs b/tests/quota-claim-fault.test.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..18e2b4fbcf09c4a1b3460acdac641d3627ef5f89
+--- /dev/null
++++ b/tests/quota-claim-fault.test.mjs
+@@ -0,0 +1,78 @@
++import assert from 'node:assert/strict'
++import {randomUUID,createHash} from 'node:crypto'
++import {spawn,execFileSync} from 'node:child_process'
++import {once} from 'node:events'
++import {mkdtemp,writeFile,readFile} from 'node:fs/promises'
++import {appendFileSync} from 'node:fs'
++import {tmpdir} from 'node:os'
++import {join} from 'node:path'
++import {setTimeout as delay} from 'node:timers/promises'
++import test from 'node:test'
++import {Pool} from 'pg'
++import {QuotaStore} from '../lib/quota/store.ts'
++const target=process.env.QUOTA_TEST_DATABASE_URL
++if(target){const u=new URL(target);assert.ok(['localhost','127.0.0.1','[::1]'].includes(u.hostname));assert.match(u.pathname,/(?:_e2e|_quota215)$/)}
++test('actual HTTP claim SQL fault rolls back activation and permits one safe retry',{skip:!target,timeout:180000},async t=>{
++ const pool=new Pool({connectionString:target,max:5}),dir=await mkdtemp(join(tmpdir(),'mikka-claim-fault-'))
++ const network=join(dir,'network.jsonl'),log=join(dir,'next.log');await writeFile(network,'');await writeFile(log,'')
++ const owner=randomUUID(),workspace=randomUUID(),device=randomUUID(),agent=randomUUID(),repo=randomUUID(),issue=randomUUID(),run=randomUUID(),token=randomUUID()
++ const evidence={sha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),utc:new Date().toISOString(),environment:'http://localhost:3216/mikka',mode:process.env.QUOTA_TEST_SERVER_MODE??'production',owner,workspace,run,responses:[],runtimeLog:log}
++ const args=['node_modules/next/dist/bin/next',...(process.env.QUOTA_TEST_SERVER_MODE==='dev'?['dev','--webpack']:['start']),'--port','3216']
++ const child=spawn(process.execPath,args,{cwd:new URL('..',import.meta.url),env:{...process.env,MIKKA_DATABASE_URL:target,DATABASE_URL:target,BETTER_AUTH_URL:'http://localhost:3216',OPENCODE_API_KEY:'',AI_GATEWAY_API_KEY:'',COMPOSIO_API_KEY:'',NEXT_TELEMETRY_DISABLED:'1',NODE_OPTIONS:`--import=${new URL('./fixtures/quota-http-preload.mjs',import.meta.url).pathname}`,QUOTA_NETWORK_EVIDENCE:network},stdio:['ignore','pipe','pipe']})
++ child.stdout.on('data',d=>appendFileSync(log,d));child.stderr.on('data',d=>appendFileSync(log,d))
++ let cleanupPromise
++ const cleanup=()=>cleanupPromise??=(async()=>{if(child.exitCode===null&&child.signalCode===null){const exit=once(child,'exit');child.kill('SIGTERM');await exit}evidence.blockedNetworkAttempts=(await readFile(network,'utf8')).trim().split('\n').filter(Boolean).map(line=>JSON.parse(line));await writeFile('quota-claim-fault-evidence.json',JSON.stringify(evidence,null,2));await pool.end()})()
++ t.after(cleanup)
++ try{
++  let ready=false
++  for(let i=0;i<100;i++){if(child.exitCode!==null)throw new Error('Claim test server exited');try{const r=await fetch('http://localhost:3216/mikka/api/agent',{method:'HEAD',signal:AbortSignal.timeout(2000)});if(r.status===401){ready=true;break}}catch{}await delay(100)}
++  assert.ok(ready)
++  await pool.query(`INSERT INTO "user"(id,name,email,"emailVerified","createdAt","updatedAt") VALUES($1,'Synthetic claim owner',$2,true,now(),now())`,[owner,`${owner}@example.invalid`])
++  await pool.query(`INSERT INTO mikka_workspaces(id,"userId",name) VALUES($1,$2,'Synthetic claim workspace')`,[workspace,owner])
++  await pool.query(`INSERT INTO mikka_workspace_members("workspaceId","userId",name,email,role,status) VALUES($1,$2,'Synthetic claim owner',$3,'admin','active')`,[workspace,owner,`${owner}@example.invalid`])
++  const resources={'daemon.run':{units:1,unknownCostApproved:true}}
++  await pool.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,rate_window_seconds,resources,expires_at,granted_by,reason) VALUES($1,10,1,100,60,$2,now()+interval '1 hour','test-operator','synthetic claim fault')`,[workspace,resources])
++  await pool.query(`INSERT INTO quota_tenants(workspace_id,window_start,window_end,budget_units,concurrency_limit,rate_limit,rate_window_seconds,resources) VALUES($1,now()-interval '1 minute',now()+interval '30 minutes',10,1,100,60,$2)`,[workspace,resources])
++  await pool.query('INSERT INTO quota_owners(owner_id,workspace_id) VALUES($1,$2)',[owner,workspace])
++  await pool.query('INSERT INTO device_tokens(id,"userId","tokenHash") VALUES($1,$2,$3)',[randomUUID(),owner,createHash('sha256').update(token).digest('hex')])
++  await pool.query(`INSERT INTO devices(id,"ownerId",name,platform,arch,"daemonVersion") VALUES($1,$2,'synthetic fault device','linux','x64','0.0.1')`,[device,owner])
++  await pool.query(`INSERT INTO agents(id,"userId",name,harness,"deviceId") VALUES($1,$2,'synthetic fault agent','codex',$3)`,[agent,owner,device])
++  await pool.query(`INSERT INTO device_repos(id,"deviceId","userId","repoPath","baseBranch") VALUES($1,$2,$3,'/synthetic-no-execution','main')`,[repo,device,owner])
++  await pool.query(`INSERT INTO issues(id,"userId",title,content,status,priority) VALUES($1,$2,'synthetic claim fault','{}','todo','normal')`,[issue,owner])
++  await pool.query(`INSERT INTO agent_runs(id,"userId","agentId","deviceId","deviceRepoId","issueId",status) VALUES($1,$2,$3,$4,$5,$6,'queued')`,[run,owner,agent,device,repo,issue])
++  await pool.query('CREATE TABLE IF NOT EXISTS quota_claim_test_faults(run_id uuid PRIMARY KEY,enabled boolean NOT NULL)')
++  await pool.query('INSERT INTO quota_claim_test_faults VALUES($1,true)',[run])
++  const suffix=randomUUID().replaceAll('-',''),functionName=`quota_claim_fault_${suffix}`
++  await pool.query(`CREATE FUNCTION ${functionName}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status='preparing' AND EXISTS(SELECT 1 FROM quota_claim_test_faults WHERE run_id=NEW.id AND enabled) THEN RAISE EXCEPTION 'synthetic claim CAS fault'; END IF; RETURN NEW; END $$`)
++  await pool.query(`CREATE TRIGGER ${functionName} BEFORE UPDATE ON agent_runs FOR EACH ROW EXECUTE FUNCTION ${functionName}()`)
++  const snapshot=async()=>({reservations:(await pool.query('SELECT id,state,request_key,units,settled_units,expires_at FROM quota_reservations WHERE owner_id=$1 ORDER BY created_at',[owner])).rows,run:(await pool.query('SELECT status,"quotaReservationId","startedAt","leaseExpiresAt" FROM agent_runs WHERE id=$1',[run])).rows[0],quota:(await pool.query('SELECT id,state,units,settled_units,expires_at FROM quota_reservations WHERE owner_id=$1 AND request_key=$2',[owner,`daemon:${run}`])).rows[0]})
++  const claim=async()=>{const response=await fetch(`http://localhost:3216/mikka/v1/devices/${device}/runs/${run}/claim`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(30000)});let body;try{body=await response.json()}catch{body={error:'non-JSON server failure'}}const result={status:response.status,hasPayload:typeof body.prompt==='string',error:body.error};evidence.responses.push(result);return result}
++  const failed=await claim();evidence.afterFault=await snapshot()
++  await pool.query('UPDATE quota_claim_test_faults SET enabled=false WHERE run_id=$1',[run])
++  // Model the persisted orphan from the older two-transaction claim version.
++  // New claims roll the reservation back too; legacy state must also recover.
++  const oldStore=new QuotaStore(pool,async(user,ws)=>Boolean((await pool.query(`SELECT 1 FROM mikka_workspace_members WHERE "userId"=$1 AND "workspaceId"=$2 AND status='active'`,[user,ws])).rowCount))
++  const legacy=await oldStore.reserve({ownerId:owner,key:`daemon:${run}`,resource:'daemon.run',binding:{runId:run,issueId:issue,agentId:agent,repoId:repo}})
++  evidence.legacyReservation=legacy.id
++  await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE owner_id=$1",[owner])
++  evidence.beforeDelayedRetry=await snapshot()
++  await pool.query('UPDATE agent_runs SET "startedAt"=clock_timestamp() WHERE id=$1',[run])
++  const ambiguous=await claim();evidence.afterUnsafeHistory=await snapshot()
++  assert.equal(ambiguous.status,409);assert.equal(ambiguous.error,'quotaUnsentProofFailed')
++  assert.equal(evidence.afterUnsafeHistory.reservations.length,1)
++  // Restore only the synthetic fixture after proving ambiguous history fails.
++  await pool.query('UPDATE agent_runs SET "startedAt"=NULL WHERE id=$1',[run])
++  const retried=await claim();evidence.afterRetry=await snapshot()
++  if(retried.status!==200){await pool.query("UPDATE quota_reservations SET expires_at=clock_timestamp()-interval '1 second' WHERE owner_id=$1",[owner]);await claim();evidence.afterExpiredRetry=await snapshot()}
++  assert.equal(failed.status,503);assert.equal(failed.hasPayload,false)
++  assert.equal(evidence.afterFault.run.status,'queued');assert.equal(evidence.afterFault.run.quotaReservationId,null);assert.equal(evidence.afterFault.quota,undefined);assert.equal(evidence.afterFault.reservations.length,0)
++  assert.equal(evidence.afterFault.run.startedAt,null);assert.equal(evidence.afterFault.run.leaseExpiresAt,null)
++  assert.equal(retried.status,200);assert.equal(retried.hasPayload,true);assert.notEqual(evidence.afterRetry.run.quotaReservationId,legacy.id)
++  assert.equal(evidence.afterRetry.quota.state,'refunded');assert.equal(evidence.afterRetry.quota.settled_units,'0')
++  assert.equal(evidence.afterRetry.reservations.length,2)
++  const bound=evidence.afterRetry.reservations.find(r=>r.id===evidence.afterRetry.run.quotaReservationId)
++  assert.equal(bound.state,'executing');assert.equal(bound.request_key,`quota-unsent:${legacy.id}`)
++  assert.equal(bound.expires_at.getTime(),evidence.afterRetry.run.leaseExpiresAt.getTime())
++  assert.equal((await claim()).status,409)
++ }finally{await cleanup()}
++})
+diff --git a/workflows/coordinator/steps.ts b/workflows/coordinator/steps.ts
+index 4155430735c3f7482ad81b103e03cbab2e502480..0311a9901489c392584d7b157b675a8ada307c57 100644
+--- a/workflows/coordinator/steps.ts
++++ b/workflows/coordinator/steps.ts
+@@ -15,6 +15,9 @@ import { proposeAction } from '@/lib/pending-action-store'
+ import { issueForUser } from '@/lib/issue-access'
+ import { readIssueMetadata } from '@/lib/issue-metadata'
+ import { tiptapToText } from '@/lib/tiptap-text'
++import { getStepMetadata } from 'workflow'
++import { withTenantQuota } from '@/lib/quota/runtime'
++import { QuotaError } from '@/lib/quota/errors'
+ 
+ // Every function here is a durable step: it runs with full Node access, its
+ // result is recorded, and a failure is retried. Tools return `{ error }` for
+@@ -27,6 +30,7 @@ async function asToolResult<T>(fn: () => Promise<T>): Promise<ToolResult<T>> {
+     return await fn()
+   } catch (error) {
+     if (error instanceof ActionFailureError) return { error: error.code }
++    if (error instanceof QuotaError) return { error: error.code }
+     throw error
+   }
+ }
+@@ -62,11 +66,14 @@ export async function preparePrompt(userId: string): Promise<{ instructions: str
+   const cut = compactionCut(summary, messages)
+   if (cut !== null) {
+     const folded = messages.filter(row => row.position <= cut)
+-    const { text } = await generateText({
++    const { text } = await withTenantQuota(userId, 'coordinator.summary', { cut, summary, folded }, () => generateText({
+       model: COORDINATOR_MODEL,
+       instructions: SUMMARY_INSTRUCTIONS,
+       messages: [...promptMessages(summary, folded), { role: 'user', content: 'Write the summary now.' }],
+-    })
++      maxRetries: 0,
++      maxOutputTokens: 8192,
++      timeout: { totalMs: 270000 },
++    }), `summary:${getStepMetadata().stepId}`)
+     await store.saveSummary(userId, text, cut)
+     summary = text
+     messages = messages.filter(row => row.position > cut)
+@@ -92,7 +99,7 @@ export async function forget(userId: string, input: { text: string }) {
+ 
+ export async function composioAction(userId: string, action: ComposioActionName, input: unknown) {
+   'use step'
+-  return runComposioAction(userId, action, input)
++  return runComposioAction(userId, action, input, `composio:${getStepMetadata().stepId}`)
+ }
+ 
+ export async function proposeAccountAction(userId: string, action: ApprovalActionName, input: unknown) {
+diff --git a/workflows/coordinator/workflow.ts b/workflows/coordinator/workflow.ts
+index fed5e1bb80232f1504d57026fceab2785e65b9f4..a7bd0e23dfd4d686249eac45693b6be3843c9325 100644
+--- a/workflows/coordinator/workflow.ts
++++ b/workflows/coordinator/workflow.ts
+@@ -5,6 +5,7 @@ import { z } from 'zod'
+ import { COORDINATOR_MAX_STEPS, COORDINATOR_MODEL, coordinatorStep, turnWarning } from '@/lib/coordinator/model'
+ import { createComposioAITools, createGoogleAITools } from '@/lib/composio-actions'
+ import * as steps from './steps'
++import { QuotaWorkflowModel } from '@/lib/quota/workflow-model'
+ 
+ /** Rounds of inbox per run; later events wait for the next wake. */
+ const MAX_ROUNDS = 10
+@@ -19,7 +20,7 @@ export async function coordinatorTurn(userId: string) {
+   'use workflow'
+   const holder = getWorkflowMetadata().workflowRunId
+   const agent = new WorkflowAgent({
+-    model: COORDINATOR_MODEL,
++    model: new QuotaWorkflowModel(userId, COORDINATOR_MODEL, `coordinator:${holder}:initial`),
+     tools: coordinatorTools(userId),
+   })
+   for (let round = 0; round < MAX_ROUNDS; round++) {
+@@ -31,7 +32,10 @@ export async function coordinatorTurn(userId: string) {
+     }
+     try {
+       const { instructions, messages } = await steps.preparePrompt(userId)
+-      const result = await agent.generate({ instructions, messages, stopWhen: isStepCount(COORDINATOR_MAX_STEPS), prepareStep: coordinatorStep })
++      const result = await agent.generate({ instructions, messages, maxRetries: 0, maxOutputTokens: 8192, stopWhen: isStepCount(COORDINATOR_MAX_STEPS), prepareStep: ({ stepNumber }) => ({
++        ...coordinatorStep({ stepNumber }),
++        model: new QuotaWorkflowModel(userId, COORDINATOR_MODEL, `coordinator:${holder}:${round}:${stepNumber}`),
++      }) })
+       // Every step's messages, not only the final step's: the tool calls and
+       // results are history the next turn needs.
+       await steps.appendMessages(userId, holder, result.responseMessages, turnWarning(result.finishReason, result.text))

@@ -1,0 +1,30 @@
+{
+  "comments": [
+    {
+      "url": "https://github.com/alexj11324/Mikka/pull/265#issuecomment-6433521655",
+      "body": "Codex backlog review (2026-10-27): Retain draft. Enabling this fail-closed quota layer without an approved allocation/policy would deny execution. Current-main integration, non-production allocation, actual user/provider-safe usage readback and final acceptance are still required. No allocation, production migration or live-credit consumption was performed in this review.",
+      "user": {
+        "login": "alexj11324",
+        "name": "alexj11324",
+        "email": null,
+        "avatar_url": "https://avatars.githubusercontent.com/u/183887963?v=4",
+        "id": 183887963
+      },
+      "id": 6433521655,
+      "pull_request_review_id": null,
+      "in_reply_to_id": null,
+      "created_at": "2026-10-27T04:09:25Z",
+      "updated_at": "2026-10-27T04:09:25Z",
+      "review": null,
+      "side": null,
+      "line": null,
+      "start_line": null,
+      "path": null,
+      "body_html": "<p dir=\"auto\">Codex backlog review (2026-10-27): Retain draft. Enabling this fail-closed quota layer without an approved allocation/policy would deny execution. Current-main integration, non-production allocation, actual user/provider-safe usage readback and final acceptance are still required. No allocation, production migration or live-credit consumption was performed in this review.</p>"
+    }
+  ],
+  "url": "https://github.com/alexj11324/Mikka/pull/265",
+  "title": "alexj11324/Mikka PR #265 comments",
+  "display_url": "https://github.com/alexj11324/Mikka/pull/265",
+  "display_title": "alexj11324/Mikka PR #265 comments"
+}

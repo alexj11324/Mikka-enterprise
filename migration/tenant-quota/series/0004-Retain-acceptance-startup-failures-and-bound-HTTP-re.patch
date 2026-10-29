@@ -1,0 +1,95 @@
+From cf268d0618d96cc2ab8136afc9771776c7aa5654 Mon Sep 17 00:00:00 2001
+From: codex <codex@openai.com>
+Date: Sun, 25 Oct 2026 17:35:29 +0000
+Subject: [PATCH 4/7] Retain acceptance startup failures and bound HTTP
+ readiness probes
+
+---
+ docs/backend/215-tenant-quotas.md | 17 +++++++++++++++++
+ tests/quota-api.test.mjs          | 26 +++++++++++++++++---------
+ 2 files changed, 34 insertions(+), 9 deletions(-)
+
+diff --git a/docs/backend/215-tenant-quotas.md b/docs/backend/215-tenant-quotas.md
+index 775f8c59297cd814bf24748b51b1975a07bbdd65..1599b59513ee4ca9553456c0aefdc6c483b451e8 100644
+--- a/docs/backend/215-tenant-quotas.md
++++ b/docs/backend/215-tenant-quotas.md
+@@ -148,3 +148,20 @@ and ordinary repository build. No repository Next configuration is changed.
+   production-flow video to claim. A parent-authorized integrated user acceptance
+   recording remains a release artifact, not a reason to fabricate a demo.
+ - #215 remains open until applicable integrated acceptance and independent review.
++
++### Measurement inventory
++
++| Existing source | What can be measured | Limitation / admission policy |
++| --- | --- | --- |
++| Ordinary Agent / Coordinator SDK | Model requests, bounded steps/output; Coordinator returned token observations | No current verified per-request price/remaining spend source. Operator-approved admission units, not inferred currency. |
++| Decision Gateway | Existing dedicated key budget and fixed-rule fallback | Keep #128's provider-side cap. No new shared Gateway budget or price assumption. |
++| Gateway web and Composio | Bounded requested operations, explicit rejection status / Retry-After when available | Tool/service charge and provider completion after transport loss are not authoritative billing readback. Unknown cost requires operator allocation. |
++| Daemon subscription quota protocol | Vendor, source, `ok`/`unknown`, used window fraction, reset time and observation time | This is a numeric observation, not a monetary ledger or authorization to extract a credential. It cannot establish exact per-run dollar cost; readers and subscription semantics remain unchanged. |
++| Native daemon run | Claim, heartbeat lease, run completion / uncertain loss | Admission units do not represent the provider's actual subscription debit. Live provider exhaustion, disconnected custody and balance reconciliation remain integrated #172/#207 acceptance gates. |
++| Cloud computer / persistent schedules | Candidate #172/#179 own actual resource and occurrence lifecycle | Current main lacks these executors. Parent must wire the same gate at the final boundary; no cloud/provider execution was purchased or presumed tested. |
++
++A failed local acceptance launch exposed a driver cleanup bug after an already
++exited child. The driver now bounds readiness probes, retains child output as it
++arrives, records startup failure, and cleans up on test cancellation without
++waiting for an exit event that already happened. The failed launch and font
++fetch errors remain in the private evidence directory.
+diff --git a/tests/quota-api.test.mjs b/tests/quota-api.test.mjs
+index 832a1e22792230746a0bc6bc4411ca6a5e0c61b9..35ea330da3e405d69b6e5cd958ba5b0fbbdc8fcc 100644
+--- a/tests/quota-api.test.mjs
++++ b/tests/quota-api.test.mjs
+@@ -3,6 +3,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto'
+ import { execFileSync, spawn } from 'node:child_process'
+ import { once } from 'node:events'
+ import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
++import { appendFileSync } from 'node:fs'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+ import { setTimeout as delay } from 'node:timers/promises'
+@@ -26,18 +27,28 @@ test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates'
+   const results=[]
+   const evidence={utc:new Date().toISOString(),sha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),environment:base,fixtures:[],requests:[],migration:'20261025165100_tenant_quotas.sql',results}
+   let log=''
++  const runtimeLog=join(directory,'next-runtime.log');await writeFile(runtimeLog,'')
+   const child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3215'],{cwd:new URL('..',import.meta.url),env:{...process.env,
+     MIKKA_DATABASE_URL:target,DATABASE_URL:target,BETTER_AUTH_URL:origin,
+     // Synthetic non-secrets. The egress sentinel rejects external requests.
+     OPENCODE_API_KEY:'synthetic-quota-test-no-provider-access',AI_GATEWAY_API_KEY:'synthetic-quota-test-no-provider-access',
+     QUOTA_NETWORK_EVIDENCE:network,NODE_OPTIONS:`${process.env.NODE_OPTIONS??''} --import=${new URL('./fixtures/quota-network-guard.mjs',import.meta.url).pathname}`,
+   },stdio:['ignore','pipe','pipe']})
+-  child.stdout.on('data',d=>log+=d);child.stderr.on('data',d=>log+=d)
++  child.stdout.on('data',d=>{log+=d;appendFileSync(runtimeLog,d)})
++  child.stderr.on('data',d=>{log+=d;appendFileSync(runtimeLog,d)})
++  let cleanupPromise
++  const cleanup=()=>cleanupPromise??=(async()=>{
++    if(child.exitCode===null&&child.signalCode===null){const exit=once(child,'exit');child.kill('SIGTERM');await exit}
++    evidence.runtimeLog=runtimeLog
++    await writeFile('quota-api-evidence.json',JSON.stringify(evidence,null,2))
++    await pool.end()
++  })()
++  t.after(cleanup)
+   try{
+     let ready=false
+     for(let i=0;i<120;i++){
+       if(child.exitCode!==null)throw new Error(`Next exited: ${log}`)
+-      try{await fetch(`${base}/api/agent`,{method:'HEAD'});ready=true;break}catch{}
++      try{await fetch(`${base}/api/agent`,{method:'HEAD',signal:AbortSignal.timeout(2000)});ready=true;break}catch{}
+       await delay(250)
+     }
+     assert.ok(ready,'Next must start')
+@@ -147,11 +158,8 @@ test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates'
+     assert.equal(external,'',`External provider calls were attempted: ${external}`)
+     evidence.externalNetworkAttempts=0
+     evidence.syntheticRecordsRetained=true
+-  }finally{
+-    const exit=once(child,'exit');child.kill('SIGTERM');await exit
+-    await writeFile(join(directory,'next-runtime.log'),log)
+-    evidence.runtimeLog=join(directory,'next-runtime.log')
+-    await writeFile('quota-api-evidence.json',JSON.stringify(evidence,null,2))
+-    await pool.end()
+-  }
++  }catch(error){
++    evidence.serverFailure={message:String(error.message).slice(0,1000),utc:new Date().toISOString()}
++    throw error
++  }finally{await cleanup()}
+ })
