@@ -1,0 +1,225 @@
+From 91c67ef64ef329a1ac23e131cc02519e503f1582 Mon Sep 17 00:00:00 2001
+From: codex <codex@openai.com>
+Date: Sun, 25 Oct 2026 17:17:29 +0000
+Subject: [PATCH 2/7] Verify operator caps and preserve quota identities
+ through retries
+
+---
+ .github/workflows/tenant-quota.yml |  1 +
+ .github/workflows/ui-policy.yml    |  2 ++
+ lib/composio.ts                    |  4 ++--
+ lib/pending-actions.ts             |  2 +-
+ lib/quota/store.test.ts            | 26 +++++++++++++++++++++++++-
+ tests/e2e/fixtures.ts              | 17 +++++++++++++++++
+ tests/e2e/workspace.spec.ts        |  3 ++-
+ tests/quota-api.test.mjs           | 17 +++++++++++++----
+ workflows/coordinator/steps.ts     |  2 +-
+ 9 files changed, 64 insertions(+), 10 deletions(-)
+
+diff --git a/.github/workflows/tenant-quota.yml b/.github/workflows/tenant-quota.yml
+index 8eb3a94b7b306034c93e91d65b44da130d16cad8..a00ad68c0d17aeed4ce5ea3c0455cf8043d11830 100644
+--- a/.github/workflows/tenant-quota.yml
++++ b/.github/workflows/tenant-quota.yml
+@@ -8,6 +8,7 @@ permissions:
+   contents: read
+ jobs:
+   quota-postgres:
++    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+     runs-on: ubuntu-latest
+     timeout-minutes: 20
+     services:
+diff --git a/.github/workflows/ui-policy.yml b/.github/workflows/ui-policy.yml
+index 2ce364966230492bb85db73e1ab461e48b8626d6..563602e316744ec069bfc586916a939641a83e00 100644
+--- a/.github/workflows/ui-policy.yml
++++ b/.github/workflows/ui-policy.yml
+@@ -162,6 +162,8 @@ jobs:
+           MIGRATION_BOOTSTRAP_CI: '1'
+       - name: Group conversation API and migrations (temporary Postgres 17 only)
+         run: pnpm test:groups
++      - name: Migrate the isolated application database, including backend-only quota tables
++        run: MIGRATE=1 pnpm migrate
+       - run: pnpm test:e2e:setup
+       - name: Verify legacy workspace migration and idempotency
+         run: node --test tests/workspace-migration.test.mjs
+diff --git a/lib/composio.ts b/lib/composio.ts
+index 6bce23d14f1e91c50546120843bbba10f029e422..22f7f0223df0e4e0af28d73158e767003ce97905 100644
+--- a/lib/composio.ts
++++ b/lib/composio.ts
+@@ -11,9 +11,9 @@ export function getComposio() {
+   return apiKey ? new Composio({ apiKey }) : null
+ }
+ 
+-export async function runComposioAction(userId: string, action: ComposioActionName, input: unknown): Promise<ComposioActionResult> {
++export async function runComposioAction(userId: string, action: ComposioActionName, input: unknown, operationKey: string = crypto.randomUUID()): Promise<ComposioActionResult> {
+   try {
+-    const quota = await beginQuota({ ownerId: userId, resource: 'composio.action', key: crypto.randomUUID(), binding: { action, input } })
++    const quota = await beginQuota({ ownerId: userId, resource: 'composio.action', key: operationKey, binding: { action, input } })
+     const result = await executeComposioAction(userId, action, input, getComposio(), async error => {
+       const failure = quotaFailure(error)
+       await tenantQuotas.finish(userId, quota.id, failure.outcome, undefined, failure.retryAfter)
+diff --git a/lib/pending-actions.ts b/lib/pending-actions.ts
+index 27263d2d2a2ebf2090a9d518208cadfa2b04d482..6fbe9543c7bdf13c0cb8103ef5e821c8dcf174db 100644
+--- a/lib/pending-actions.ts
++++ b/lib/pending-actions.ts
+@@ -26,7 +26,7 @@ export async function decidePendingAction(userId: string, id: string, approve: b
+   let error: string | null = null
+   let outcome: Record<string, string> = {}
+   if (approve) {
+-    const result = await runComposioAction(userId, row.action, row.input)
++    const result = await runComposioAction(userId, row.action, row.input, `approved-action:${row.id}`)
+     if ('error' in result) {
+       status = 'failed'
+       error = result.error
+diff --git a/lib/quota/store.test.ts b/lib/quota/store.test.ts
+index 8ec56e977611315733d41538649690c20729b628..f7b5003a4b0032153a168188dbe4d16e25adc114 100644
+--- a/lib/quota/store.test.ts
++++ b/lib/quota/store.test.ts
+@@ -50,7 +50,7 @@ test('real PostgreSQL quota contention, restart, retries and authorization', { s
+       await pool.query('INSERT INTO quota_test_members(owner_id,workspace_id) VALUES ($1,$2)',[owner,workspace])
+       return { owner,workspace,policy }
+     }
+-    const request = (owner: string, key = randomUUID(), resource='agent.turn', binding: unknown={}) => ({ ownerId:owner,key,resource,binding })
++    const request = (owner: string, key: string = randomUUID(), resource='agent.turn', binding: unknown={}) => ({ ownerId:owner,key,resource,binding })
+     const state = async (id:string) => (await pool.query('SELECT * FROM quota_reservations WHERE id=$1',[id])).rows[0]
+ 
+     await t.test('10 simultaneous mixed entry requests share tenant concurrency; other tenant proceeds', async () => {
+@@ -118,6 +118,30 @@ test('real PostgreSQL quota contention, restart, retries and authorization', { s
+       const r=await store.reserve(request(owner));await store.finish(owner,r.id,'refunded')
+       await assert.rejects(new QuotaStore(pool,authorize).reserve(request(owner)),{code:'quotaRateExceeded'})
+     })
++    await t.test('operator allocation and override are rechecked at activation/renewal; tenant admins cannot raise caps',async()=>{
++      const f=await fixture({budgetUnits:0})
++      await assert.rejects(configureQuota(pool,f.workspace,f.owner,{...f.policy,budgetUnits:101}),{code:'quotaAllocationExceeded'})
++      await assert.rejects(configureQuota(pool,f.workspace,f.owner,{...f.policy,resources:{'agent.turn':{units:0,unknownCostApproved:true}}}),{code:'quotaAllocationExceeded'})
++      await configureQuota(pool,f.workspace,f.owner,{...f.policy,override:{units:1,until:new Date(Date.now()+60000).toISOString(),reason:'synthetic authorized override'}})
++      const r=await store.reserve(request(f.owner))
++      await pool.query("UPDATE quota_tenants SET override_until=clock_timestamp()-interval '1 second' WHERE workspace_id=$1",[f.workspace])
++      await assert.rejects(store.activate(f.owner,r.id),{code:'quotaBudgetExhausted'})
++      await store.finish(f.owner,r.id,'refunded')
++      await pool.query("UPDATE quota_tenants SET budget_units=1 WHERE workspace_id=$1",[f.workspace])
++      const active=await store.reserve(request(f.owner));await store.activate(f.owner,active.id)
++      await pool.query('UPDATE quota_allocations SET revoked_at=clock_timestamp() WHERE workspace_id=$1',[f.workspace])
++      await assert.rejects(store.renew(f.owner,active.id,90000),{code:'quotaAllocationUnavailable'})
++      await store.finish(f.owner,active.id,'uncertain')
++      assert.equal((await state(active.id)).settled_units,'1')
++    })
++    await t.test('SQL write fault rolls back reservation and releases the tenant lock',async()=>{
++      const {owner}=await fixture()
++      await pool.query(`CREATE FUNCTION quota_test_write_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.request_key='synthetic-write-fault' THEN RAISE EXCEPTION 'injected quota insert failure'; END IF; RETURN NEW; END $$`)
++      await pool.query('CREATE TRIGGER quota_test_write_fault BEFORE INSERT ON quota_reservations FOR EACH ROW EXECUTE FUNCTION quota_test_write_fault()')
++      await assert.rejects(store.reserve(request(owner,'synthetic-write-fault')),/injected quota insert failure/)
++      assert.equal(Number((await pool.query('SELECT count(*) n FROM quota_reservations WHERE owner_id=$1',[owner])).rows[0].n),0)
++      await store.reserve(request(owner))
++    })
+     await t.test('unknown configuration/cost, suspension, workspace mismatch and expired override fail closed',async()=>{
+       await assert.rejects(store.reserve(request(randomUUID())),{code:'quotaNotConfigured'})
+       const {owner,workspace}=await fixture()
+diff --git a/tests/e2e/fixtures.ts b/tests/e2e/fixtures.ts
+index ebe589c11560fb14515fec5c27bba1d6996cbc4c..3e229595ad06ae3d8bba5816eb07ef3f201defb4 100644
+--- a/tests/e2e/fixtures.ts
++++ b/tests/e2e/fixtures.ts
+@@ -66,6 +66,23 @@ export async function seedTask(page: Page, title: string, { status = 'todo', pri
+   return id
+ }
+ 
++/** An operator-issued synthetic enqueue-only allocation. It cannot call a model. */
++export async function seedCoordinatorAdmission(page: Page) {
++  const target = new URL(process.env.E2E_DATABASE_URL!)
++  if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_e2e')) throw new Error('Quota fixture requires loopback E2E database')
++  const cookie = (await page.context().cookies()).find(item => item.name.endsWith('session_token'))
++  if (!cookie) throw new Error('Quota fixture requires authenticated synthetic session')
++  const db = database()
++  const { rows: [row] } = await db.query(`SELECT s."userId" AS owner,w.id AS workspace FROM session s JOIN mikka_workspaces w ON w."userId"=s."userId" WHERE s.token=$1 LIMIT 1`, [decodeURIComponent(cookie.value).split('.')[0]])
++  if (!row) throw new Error('Quota fixture requires an existing workspace')
++  const resources = { 'coordinator.submit': { units: 0, unknownCostApproved: true } }
++  await db.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,resources,expires_at,granted_by,reason)
++    VALUES ($1,0,1,100,$2,now()+interval '1 hour','e2e-operator','synthetic enqueue-only fixture') ON CONFLICT DO NOTHING`, [row.workspace, resources])
++  await db.query(`INSERT INTO quota_tenants(workspace_id,window_start,window_end,budget_units,concurrency_limit,rate_limit,rate_window_seconds,resources)
++    VALUES ($1,now()-interval '1 minute',now()+interval '30 minutes',0,1,100,60,$2) ON CONFLICT DO NOTHING`, [row.workspace, resources])
++  await db.query('INSERT INTO quota_owners(owner_id,workspace_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [row.owner, row.workspace])
++}
++
+ /** The current conversation's title pill over the chat (desktop). */
+ export function conversationPill(page: Page) {
+   // Conversations opened earlier stay mounted but hidden; only the current one is visible.
+diff --git a/tests/e2e/workspace.spec.ts b/tests/e2e/workspace.spec.ts
+index c320b9a1eab2684e5bd47131be12d5bb6e8689fd..1374741119deea712699b1c92f5121a95e44591d 100644
+--- a/tests/e2e/workspace.spec.ts
++++ b/tests/e2e/workspace.spec.ts
+@@ -1,5 +1,5 @@
+ import { randomUUID } from 'node:crypto'
+-import { test, expect, register, rail, app, openCreateIssue, openIssueFromSearch, seedTask } from './fixtures'
++import { test, expect, register, rail, app, openCreateIssue, openIssueFromSearch, seedTask, seedCoordinatorAdmission } from './fixtures'
+ 
+ test('未登录访问受保护页面、注册和登录链接', async ({ page }) => {
+   await page.goto(app('/settings/members'))
+@@ -65,6 +65,7 @@ test('移动端设置菜单和工作区切换保持一致', async ({ page }) =>
+ 
+ test('注册、创建任务、菜单、搜索、视图切换和退出登录', async ({ page }) => {
+   const account = await register(page)
++  await seedCoordinatorAdmission(page)
+   await expect(page.getByRole('button', { name: /^Coordinator/ })).toHaveAttribute('aria-current', 'page')
+   await rail(page, '看板').click()
+   await expect(page.getByRole('heading', { name: '看板', exact: true })).toBeVisible()
+diff --git a/tests/quota-api.test.mjs b/tests/quota-api.test.mjs
+index 6d42de8e3c0f5b891128d38db86ca1ed3651a6cd..a45189d4b2098079e9c367a56b71a07f936d4dd7 100644
+--- a/tests/quota-api.test.mjs
++++ b/tests/quota-api.test.mjs
+@@ -24,7 +24,7 @@ test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates'
+   assert.ok(secret?.length>=32,'Ephemeral auth secret required')
+   const origin='http://localhost:3215',base=`${origin}/mikka`
+   const results=[]
+-  const evidence={utc:new Date().toISOString(),sha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),environment:base,migration:'20261025165100_tenant_quotas.sql',results}
++  const evidence={utc:new Date().toISOString(),sha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),environment:base,fixtures:[],requests:[],migration:'20261025165100_tenant_quotas.sql',results}
+   let log=''
+   const child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3215'],{cwd:new URL('..',import.meta.url),env:{...process.env,
+     MIKKA_DATABASE_URL:target,DATABASE_URL:target,BETTER_AUTH_URL:origin,
+@@ -49,7 +49,12 @@ test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates'
+       await pool.query('INSERT INTO mikka_workspace_members("workspaceId","userId",name,email,role,status) VALUES ($1,$2,\'Quota test\',$3,\'admin\',\'active\')',[workspace,owner,`${owner}@example.invalid`])
+       const signature=createHmac('sha256',secret).update(token).digest('base64')
+       const headers={cookie:`better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,origin,'content-type':'application/json'}
+-      const request=async(path,body,method='POST')=>fetch(`${base}${path}`,{method:method==='PUT'?'PUT':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)})
++      evidence.fixtures.push({owner,workspace})
++      const request=async(path,body,method='POST')=>{
++        const response=await fetch(`${base}${path}`,{method:method==='PUT'?'PUT':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)})
++        evidence.requests.push({owner,workspace,path,method,status:response.status,utc:new Date().toISOString()})
++        return response
++      }
+       const policy={windowStart:new Date(Date.now()-60000).toISOString(),windowEnd:new Date(Date.now()+3600000).toISOString(),budgetUnits:0,concurrencyLimit:1,rateLimit:100,rateWindowSeconds:60,
+         resources:{'agent.turn':{units:1,unknownCostApproved:true},'coordinator.submit':{units:1,unknownCostApproved:true},'coordinator.model':{units:1,unknownCostApproved:true},'daemon.run':{units:1,unknownCostApproved:true}},paused:false,owners:[owner],override:null}
+       await pool.query(`INSERT INTO quota_allocations(workspace_id,max_budget_units,max_concurrency,max_rate_limit,resources,expires_at,granted_by,reason)
+@@ -59,7 +64,7 @@ test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates'
+       return{owner,workspace,request,configure,policy,headers}
+     }
+     const check=async(name,action)=>{
+-      await t.test(name,async()=>{await action();results.push({name,result:'passed',utc:new Date().toISOString()})})
++      await t.test(name,async()=>{try{await action();results.push({name,result:'passed',utc:new Date().toISOString()})}catch(error){results.push({name,result:'failed',message:String(error.message).slice(0,500),utc:new Date().toISOString()});throw error}})
+     }
+     await check('ordinary Agent 10-way budget denial returns 429 and leaves no running turns',async()=>{
+       const f=await fixture()
+@@ -110,7 +115,11 @@ test('actual Next HTTP Agent, Coordinator, administrator and daemon quota gates'
+       await pool.query(`INSERT INTO issues(id,"userId",title,content,status,priority) VALUES ($1,$2,'quota issue','{}','todo','normal')`,[issue,f.owner])
+       const runs=Array.from({length:10},()=>randomUUID())
+       for(const run of runs)await pool.query(`INSERT INTO agent_runs(id,"userId","agentId","deviceId","deviceRepoId","issueId",status) VALUES ($1,$2,$3,$4,$5,$6,'queued')`,[run,f.owner,agent,device,repo,issue])
+-      const daemon=(path,body)=>fetch(`${base}${path}`,{method:'POST',headers:{authorization:`Bearer ${deviceToken}`,'content-type':'application/json'},body:JSON.stringify(body??{})})
++      const daemon=async(path,body)=>{
++        const response=await fetch(`${base}${path}`,{method:'POST',headers:{authorization:`Bearer ${deviceToken}`,'content-type':'application/json'},body:JSON.stringify(body??{})})
++        evidence.requests.push({owner:f.owner,workspace:f.workspace,path,method:'POST',status:response.status,utc:new Date().toISOString()})
++        return response
++      }
+       const responses=await Promise.all(runs.map(run=>daemon(`/v1/devices/${device}/runs/${run}/claim`)))
+       assert.equal(responses.filter(r=>r.status===200).length,1)
+       assert.equal(responses.filter(r=>r.status===429).length,9)
+diff --git a/workflows/coordinator/steps.ts b/workflows/coordinator/steps.ts
+index 4249142c73d1c6bda9f2eaec054839d74ea5189d..0311a9901489c392584d7b157b675a8ada307c57 100644
+--- a/workflows/coordinator/steps.ts
++++ b/workflows/coordinator/steps.ts
+@@ -99,7 +99,7 @@ export async function forget(userId: string, input: { text: string }) {
+ 
+ export async function composioAction(userId: string, action: ComposioActionName, input: unknown) {
+   'use step'
+-  return runComposioAction(userId, action, input)
++  return runComposioAction(userId, action, input, `composio:${getStepMetadata().stepId}`)
+ }
+ 
+ export async function proposeAccountAction(userId: string, action: ApprovalActionName, input: unknown) {
